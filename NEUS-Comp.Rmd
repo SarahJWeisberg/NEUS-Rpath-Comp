@@ -6,7 +6,6 @@ output: html_document
 editor_options: 
   chunk_output_type: inline
 ---
-#Starting models
 
 
 ```{r setup, include=FALSE}
@@ -21,6 +20,7 @@ library(here)
 library(dplyr)
 library(tidyr)
 library(forcats)
+library(data.table)
 
 #plotting
 library(RColorBrewer)
@@ -55,7 +55,7 @@ library(Rpath)
 library(stats)
 
 ```
-Load in the balanced models from github
+Load in the balanced models from Github
 ```{r}
 #GB
 load(url("https://github.com/NOAA-EDAB/GBRpath/blob/master/data/GB_balanced_params.RData?raw=true"))
@@ -212,10 +212,218 @@ orig.network_GOM<-enaR::pack(flow = QQ,
                          storage = Biomass)
 ```
 ##1.2 ENA on starting models
+```{r}
+orig.networks$GOM<-orig.network_GOM
+orig.networks$MAB<-orig.network_MAB
+orig.info<-lapply(orig.networks, enaAscendency)
+```
 
 #2 Ecosense outputs
+```{r}
+#load ecosense outputs
+load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_50k_2024_no_disc.RData?raw=true"))
+load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_50k_resp_constrain.RData?raw=true"))
+```
 
 #3 ENA on Ecosense outputs
+##3.2 ENA on MAB Ecosense outputs
+```{r}
+#Copy initial Rpath parameters
+#Alternative scenarios will be the same except for Biomass, PB, QB, Diet, M0
+alt<-copy(MAB.rpath.params)
+alt.diet<-copy(MAB.rpath.params$diet)
+
+#Count number of each group type
+ngroups <- nrow(alt$model)
+nliving <- nrow(alt$model[Type <  2, ])
+ndead   <- nrow(alt$model[Type == 2, ])
+ngear   <- nrow(alt$model[Type == 3, ])
+#find index of pp
+pp <- which(groups == "Phytoplankton")
+
+#calculate ena metrics for all ecosense outputs
+alt.networks<-as.list(rep(NA,length(MAB_sense)))
+
+for (i in 1:length(alt.networks)) {
+  #Copy initial Rpath parameters
+  Rpath.alt<-copy(MAB.rpath.params)
+  #Copy scenario
+  MAB.alt<-MAB_sense[[i]]
+  #Assign biomass
+  #Ignore Outside
+  Biomass<-MAB.alt$B_BaseRef[2:(nliving+ndead+1)]
+  #Assign PB
+  PB<-MAB.alt$PBopt[2:(nliving+ndead+1)]
+  #Assign QB
+  QB<-MAB.alt$FtimeQBOpt[2:(nliving+ndead+1)]
+  QB[pp]<-0
+  #Assign M0
+  M0<-MAB.alt$MzeroMort[2:(nliving+ndead+1)]
+  #Assign diet
+  #Remove first two entries which represent 'outside' flow to 'outside' and 'PP'
+  PreyFrom<-MAB.alt$PreyFrom[-c(1,2)]
+  PreyTo<-MAB.alt$PreyTo[-c(1,2)]
+  predpreyQ<-MAB.alt$QQ[-c(1,2)]
+  #Fill consumption matrix
+  QQ<-matrix(nrow = (nliving + ndead + 1),ncol=nliving)
+  for (j in 1:length(PreyFrom)){
+    prey<-PreyFrom[j]
+    pred<-PreyTo[j]
+    QQ[prey,pred]<-predpreyQ[j]
+  }
+  #convert NAs to 0s
+  QQ[which(is.na(QQ)==T)]<-0
+  #Ignore Imports
+  QQ<-QQ[1:(nliving+ndead),]
+  colnames(QQ)<-groups[1:nliving]
+  rownames(QQ)<-groups[1:(nliving+ndead)]
+  #Calculate flows to detritus
+  Unassim<-MAB.alt$UnassimRespFrac[2:(nliving+ndead+1)]
+  DetFate<-MAB.alt$DetFrac[2:(nliving+ndead+1)]
+  Detritus<-(M0*Biomass+QB*Biomass*Unassim)*DetFate
+  #Detritus<-(model$QB*model$Biomass*model$Unassim)*model$DetFate[,1]
+  #Detritus<-Detritus[1:(nliving+ndead)]
+  #Deal with flow to detritus from discards
+  #Should be equal to all flow to discards minus consumption by SeaBirds(45)
+  #DetInDisc<-sum(Discards)
+  #Detritus[58]<-DetInDisc-QQ[58,45]
+  #Flow to detritus from detritus = 0
+  Detritus[(nliving+ndead)]<-0
+  #Bind diet matrix (QQ) with flow to detritus, discards
+  QQ<-cbind(QQ,Detritus)
+  #Calculate exports
+  #First sum catch
+  Catch<-rowSums(MAB.rpath$Landings)[1:(nliving+ndead)]
+  #Add positive biomass accumulation terms
+  BA<-MAB.rpath$BA[1:(nliving+ndead)]
+  Export<-Catch+(ifelse(BA>0,BA*Biomass,0))
+  for (k in 1:ndead){
+    Export[nliving+k]<-M0[nliving+k]*Biomass[nliving+k]
+  }
+  Export<-Export[1:(nliving+ndead)]
+  #Calculate respiration
+  #Assume detritus, discards have 0 respiration
+  Resp<-((1-Unassim)*QB-PB)*Biomass
+  Resp<-ifelse(Resp>0,Resp,0)
+  Resp<-Resp[1:(nliving+ndead)]
+  Resp[(nliving+1):(nliving+ndead)]<-0
+  #Deal with Primary Production
+  #First, estimate GROSS production = Imports
+  #P/B in Ecopath model gives NET production
+  #Ratio of gross:net is going to be fixed based on EMAX
+  gross_net<-(4251.874+1062.968)/4251.874
+  gross<-gross_net*PB[pp]*Biomass[pp]
+  Resp[pp]<-gross-(PB[pp]*Biomass[pp])
+  #Calculate imports
+  #Negative biomass accumulation terms
+  #Gross primary production
+  Import<-abs(ifelse(BA<0,BA*Biomass,0))
+  #EE_Biomass<-ifelse(model$EE>1,(model$EE-1)*model$Biomass,0)
+  #Import<-BA_Biomass+EE_Biomass
+  Import[pp]<-gross
+  Import<-Import[1:(nliving+ndead)]
+  #Pack the model directly and store
+  alt.networks[[i]]<-enaR::pack(flow = QQ,
+                                input = Import,
+                                export = Export,
+                                living = c(rep(TRUE,nliving),rep(FALSE,ndead)),
+                                respiration = Resp,
+                                storage = Biomass)
+}
+
+MAB_info<-lapply(alt.networks, enaAscendency)
+rm(alt.networks)
+```
+##3.3 ENA on GOM Ecosense outputs
+```{r}
+
+#Copy initial Rpath parameters
+#Alternative scenarios will be the same except for Biomass, PB, QB, Diet, M0
+alt<-copy(GOM.params)
+alt.diet<-copy(GOM.params$diet)
+
+#Count number of each group type
+ngroups <- nrow(alt$model)
+nliving <- nrow(alt$model[Type <  2, ])
+ndead   <- nrow(alt$model[Type == 2, ])
+ngear   <- nrow(alt$model[Type == 3, ])
+#find index of pp
+pp <- which(groups == "Phytoplankton")
+alt.networks<-as.list(rep(NA,length(GOM_sense)))
+
+for (i in 1:length(GOM_sense)) {
+  model<-GOM_sense[[i]]
+  #Assign biomass, ignore Outside
+  Biomass<-model$B_BaseRef[2:(nliving+ndead+1)]
+  #Assign PB
+  PB<-model$PBopt[2:(nliving+ndead+1)]
+  #Assign QB
+  QB<-model$FtimeQBOpt[2:(nliving+ndead+1)]
+  QB[pp]<-0
+  #Assign M0
+  M0<-model$MzeroMort[2:(nliving+ndead+1)]
+  #Assign diet
+  #Remove first two entries which represent 'outside' flow to 'outside' and 'PP'
+  PreyFrom<-model$PreyFrom[-c(1,2)]
+  PreyTo<-model$PreyTo[-c(1,2)]
+  predpreyQ<-model$QQ[-c(1,2)]
+  #Fill consumption matrix
+  QQ<-matrix(nrow = (nliving + ndead + 1),ncol=nliving)
+  for (j in 1:length(PreyFrom)){
+    prey<-PreyFrom[j]
+    pred<-PreyTo[j]
+    QQ[prey,pred]<-predpreyQ[j]
+  }
+  #convert NAs to 0s
+  QQ[which(is.na(QQ)==T)]<-0
+  #Ignore Imports
+  QQ<-QQ[1:(nliving+ndead),]
+  colnames(QQ)<-groups[1:nliving]
+  rownames(QQ)<-groups[1:(nliving+ndead)]
+  #Calculate flows to detritus
+  Unassim<-model$UnassimRespFrac[2:(nliving+ndead+1)]
+  DetFate<-model$DetFrac[2:(nliving+ndead+1)]
+  Detritus<-(M0*Biomass+QB*Biomass*Unassim)*DetFate
+  #Flow to detritus from detritus = 0
+  Detritus[(nliving+ndead)]<-0
+  #Bind diet matrix (QQ) with flow to detritus, discards
+  QQ<-cbind(QQ,Detritus)
+  #Calculate exports
+  #First sum catch
+  #Catch doesn't change in Ecosense so am pulling from original model
+  Catch<-rowSums(GOM$Landings)[1:(nliving+ndead)]
+  #Add positive biomass accumulation terms
+  BA<-GOM$BA[1:(nliving+ndead)]
+  Export<-Catch+(ifelse(BA>0,BA*Biomass,0))
+  for (k in 1:ndead){
+    Export[nliving+k]<-M0[(nliving+k)]*Biomass[(nliving+k)]
+  }
+  Export<-Export[1:(nliving+ndead)]
+  #Calculate respiration
+  #Assume detritus, discards have 0 respiration
+  Resp<-((1-Unassim)*QB-PB)*Biomass
+  Resp<-ifelse(Resp>0,Resp,0)
+  Resp<-Resp[1:(nliving+ndead)]
+  Resp[(nliving+1):(nliving+ndead)]<-0
+  #Deal with Primary Production
+  #First, estimate GROSS production = Imports
+  #P/B in Ecopath model gives NET production
+  #Ratio of gross:net is going to be fixed based on EMAX
+  gross_net<-4101.9/3281.5
+  gross<-gross_net*PB[pp]*Biomass[pp]
+  Resp[pp]<-gross-(PB[pp]*Biomass[pp])
+  Import<-abs(ifelse(BA<0,BA*Biomass,0)) 
+  Import[pp]<-gross
+  Import<-Import[1:(nliving+ndead)]
+  alt.networks[[i]]<-enaR::pack(flow = QQ,
+                                input = Import,
+                                export = Export,
+                                living = c(rep(TRUE,nliving),rep(FALSE,ndead)),
+                                respiration = Resp,
+                                storage = Biomass)
+}
+```
+
 
 #4 Figures
 ## 4.1 Figure 1: Map
