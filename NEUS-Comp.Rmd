@@ -214,25 +214,37 @@ orig.network_GOM<-enaR::pack(flow = QQ,
 ##1.2 ENA on starting models
 ```{r}
 orig.networks$GOM<-orig.network_GOM
+info.orig_GOM<-enaAscendency(orig.network_GOM)
+info.orig_GOM <- as.data.frame(info.orig_GOM)
 orig.networks$MAB<-orig.network_MAB
 orig.info<-lapply(orig.networks, enaAscendency)
 ```
 
-#2 Ecosense outputs
+#2 Analyze and compare ecosense outputs
+  Load ecosense outputs - bounded and unbounded
 ```{r}
 #load ecosense outputs
+#need to adjust these file names to be more concise
+#MAB
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_50k_2024_no_disc.RData?raw=true"))
+
+#GOM
+#with thermodynamic bounding
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_50k_resp_constrain.RData?raw=true"))
+#without thermodynamic bounding
+load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_unbound.RData?raw=true"))
 ```
 
 #3 ENA on Ecosense outputs
-##3.2 ENA on MAB Ecosense outputs
+##3.1 Network conversion of MAB ecosense outputs
 ```{r}
 #Copy initial Rpath parameters
 #Alternative scenarios will be the same except for Biomass, PB, QB, Diet, M0
 alt<-copy(MAB.rpath.params)
 alt.diet<-copy(MAB.rpath.params$diet)
 
+#Set up model with group names and types
+groups<-as.vector(MAB.rpath$Group)
 #Count number of each group type
 ngroups <- nrow(alt$model)
 nliving <- nrow(alt$model[Type <  2, ])
@@ -334,14 +346,14 @@ for (i in 1:length(alt.networks)) {
 MAB_info<-lapply(alt.networks, enaAscendency)
 rm(alt.networks)
 ```
-##3.3 ENA on GOM Ecosense outputs
+##3.3 Network conversion of GOM ecosense outputs
 ```{r}
-
 #Copy initial Rpath parameters
 #Alternative scenarios will be the same except for Biomass, PB, QB, Diet, M0
 alt<-copy(GOM.params)
 alt.diet<-copy(GOM.params$diet)
-
+#Set up model with group names and types
+groups<-as.vector(GOM$Group)
 #Count number of each group type
 ngroups <- nrow(alt$model)
 nliving <- nrow(alt$model[Type <  2, ])
@@ -349,10 +361,15 @@ ndead   <- nrow(alt$model[Type == 2, ])
 ngear   <- nrow(alt$model[Type == 3, ])
 #find index of pp
 pp <- which(groups == "Phytoplankton")
-alt.networks<-as.list(rep(NA,length(GOM_sense)))
 
-for (i in 1:length(GOM_sense)) {
-  model<-GOM_sense[[i]]
+#bind bounded and unbounded outputs
+senses<-c(GOM_sense,GOM_sense_unbound)
+#generate network models
+alt.networks<-as.list(rep(NA,length(senses)))
+
+#start with thermodynamically bound outputs
+for (i in 1:length(senses)) {
+  model<-senses[[i]]
   #Assign biomass, ignore Outside
   Biomass<-model$B_BaseRef[2:(nliving+ndead+1)]
   #Assign PB
@@ -422,6 +439,50 @@ for (i in 1:length(GOM_sense)) {
                                 respiration = Resp,
                                 storage = Biomass)
 }
+```
+##3.3 Comparing bounded/unbounded
+```{r}
+#pull nodal flows out of each alternate model
+flow<-c()
+for (i in 1:length(alt.networks)){
+  alt.flow<-enaFlow(alt.networks[[i]],balance.override=T)
+  flow_group<-cbind(groups[1:57],alt.flow$T)
+  flow<-rbind(flow,flow_group)
+}
+
+#run ascendancy analysis on each alternate model
+GOM_info<-lapply(alt.networks, enaAscendency)
+
+rm(alt.networks)
+
+#turn flows into dataframe
+flow <- as.data.frame(flow)
+rownames(flow)<-c()
+colnames(flow)<-c("group","flow")
+flow <- flow %>% mutate(flow=as.numeric(flow)) %>% 
+  mutate(condition = c(rep("bounded",length(GOM_sense)*(nliving+ndead)),rep("unbounded",length(GOM_sense_unbound)*(nliving+ndead))))
+#which flow distributions are not the same?
+#test with Kolmogorov–Smirnov test
+ks_flow<-c()
+for(i in 1:(nliving+ndead)){
+  bound<-flow %>% filter(group == groups[i],condition == "bounded")
+  unbound<-flow %>% filter(group == groups[i], condition == "unbounded")
+  test<-ks.test(bound$flow,unbound$flow)
+  ks_flow<-rbind(ks_flow,c(groups[i],test$p.value))
+}
+ks_flow<-as.data.frame(ks_flow)
+colnames(ks_flow)<-c("Group","p")
+ks_flow$p<-as.numeric(ks_flow$p)
+
+#how does A/C compare?
+#Pick out relative ascendancy metric
+ASC.CAP<-c()
+for (i in 1:length(GOM_info)){
+  ASC.CAP[i]<-GOM_info[[i]][[7]]
+}
+ASC.CAP<-as.data.frame(cbind(ASC.CAP,c(rep("bounded",length(GOM_sense)),rep("unbounded",length(GOM_sense_unbound)))))
+ASC.CAP<- ASC.CAP %>% mutate(ASC.CAP = as.numeric(ASC.CAP)) %>% rename(condition = V2)
+
 ```
 
 
@@ -636,4 +697,27 @@ MAB_web<-ggplot(n_MAB,aes(x, y, xend = xend, yend = yend)) +
 
 MAB_web
 ```
+##4.3 Figure 3: Flow metric comparisons (bounded to unbounded)
+```{r}
+#define groups of interest
+ks_sig<-ks_flow %>% filter(p<0.001)
+
+flow %>% filter(group %in% ks_sig$Group) %>%
+  ggplot(aes(x=flow,fill=condition))+
+  geom_density(alpha = 0.4)+
+  facet_wrap(vars(group),nrow = 3,scales = "free")
+```
+
+##4.4 Figure 4: A/C plots
+```{r}
+#set color palette
+my.pal<-brewer.pal(8,"Set2")
+ggplot(data=ASC.CAP,aes(x=ASC.CAP,fill=condition))+
+  geom_density(alpha=0.4)+
+  geom_vline(xintercept=info.orig_GOM$ASC.CAP,color=my.pal[4],linetype="dashed",linewidth=1)+
+  geom_vline(xintercept = 0.39,color="navy",linetype="dashed",linewidth=1)+
+  labs(x="A/C",y="density")
+```
+
+
 
