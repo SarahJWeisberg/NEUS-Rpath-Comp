@@ -1,19 +1,15 @@
 ---
 title: "Comparisons across NEUS Rpath models"
 author: "Sarah J. Weisberg"
-date: "2024-03-18"
+date: "2024-03-25"
 output: html_document
 editor_options: 
   chunk_output_type: inline
 ---
 
+#0 Prep 
+  Load packages and models for analysis
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-#0 Prep
-    Load packages and models for analysis
 ```{r}
 #data organizing and wrangling
 library(here)
@@ -32,6 +28,7 @@ library(showtext)
 library(igraph)
 library(ggnetwork)
 library(viridis)
+library(patchwork)
 
 #spatial tools
 remotes::install_github('NEFSC/NEFSC-Spatial')
@@ -55,7 +52,9 @@ library(Rpath)
 library(stats)
 
 ```
+
 Load in the balanced models from Github
+
 ```{r}
 #GB
 load(url("https://github.com/NOAA-EDAB/GBRpath/blob/master/data/GB_balanced_params.RData?raw=true"))
@@ -72,6 +71,7 @@ load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_Rpat
 #1 Ecological Network Analysis (ENA)
 
 ##1.1 Convert starting models to networks
+
 ```{r}
 #MAB
 #Set up model with group names and types
@@ -134,12 +134,13 @@ Import<-Import[1:(nliving+ndead)]
 #Trim biomass
 Biomass<-MAB.rpath$Biomass[1:(nliving+ndead)]
 #Pack the model directly and store
-orig.network_MAB<-enaR::pack(flow = QQ,
+orig_network_MAB<-enaR::pack(flow = QQ,
                          input = Import,
                          export = Export,
                          living = c(rep(TRUE,nliving),rep(FALSE,ndead)),
                          respiration = Resp,
                          storage = Biomass)
+
 
 #GOM
 #Set up model with group names and types
@@ -204,29 +205,37 @@ Import<-Import[1:(nliving+ndead)]
 #Trim biomass
 Biomass<-GOM$Biomass[1:(nliving+ndead)]
 #Pack the model directly and store
-orig.network_GOM<-enaR::pack(flow = QQ,
+orig_network_GOM<-enaR::pack(flow = QQ,
                          input = Import,
                          export = Export,
                          living = c(rep(TRUE,nliving),rep(FALSE,ndead)),
                          respiration = Resp,
                          storage = Biomass)
 ```
+
 ##1.2 ENA on starting models
+
 ```{r}
-orig.networks$GOM<-orig.network_GOM
-info.orig_GOM<-enaAscendency(orig.network_GOM)
-info.orig_GOM <- as.data.frame(info.orig_GOM)
-orig.networks$MAB<-orig.network_MAB
-orig.info<-lapply(orig.networks, enaAscendency)
+orig_networks<-c()
+orig_networks$GOM<-orig_network_GOM
+info_orig_GOM<-enaAscendency(orig_network_GOM)
+info_orig_GOM <- as.data.frame(info_orig_GOM)
+orig_networks$MAB<-orig_network_MAB
+info_orig_MAB<-enaAscendency(orig_network_MAB)
+info_orig_MAB <- as.data.frame(info_orig_MAB)
+orig_info<-lapply(orig_networks, enaAscendency)
 ```
 
-#2 Analyze and compare ecosense outputs
-  Load ecosense outputs - bounded and unbounded
+#2 Analyze and compare ecosense outputs Load ecosense outputs - bounded and unbounded
+
 ```{r}
 #load ecosense outputs
 #need to adjust these file names to be more concise
 #MAB
+#with thermodynamic bounding
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_50k_2024_no_disc.RData?raw=true"))
+#without thermodynamic bounding
+load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_unbound.RData?raw=true"))
 
 #GOM
 #with thermodynamic bounding
@@ -235,16 +244,17 @@ load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sens
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_unbound.RData?raw=true"))
 ```
 
-#3 ENA on Ecosense outputs
+#3 ENA on Ecosense outputs 
 ##3.1 Network conversion of MAB ecosense outputs
+
 ```{r}
 #Copy initial Rpath parameters
 #Alternative scenarios will be the same except for Biomass, PB, QB, Diet, M0
-alt<-copy(MAB.rpath.params)
-alt.diet<-copy(MAB.rpath.params$diet)
+alt <- copy(MAB.rpath.params)
+alt.diet <- copy(MAB.rpath.params$diet)
 
 #Set up model with group names and types
-groups<-as.vector(MAB.rpath$Group)
+groups <- as.vector(MAB.rpath$Group)
 #Count number of each group type
 ngroups <- nrow(alt$model)
 nliving <- nrow(alt$model[Type <  2, ])
@@ -252,15 +262,17 @@ ndead   <- nrow(alt$model[Type == 2, ])
 ngear   <- nrow(alt$model[Type == 3, ])
 #find index of pp
 pp <- which(groups == "Phytoplankton")
+#bind bounded and unbounded outputs
+senses<-c(MAB_sense,MAB_sense_unbound)
 
 #calculate ena metrics for all ecosense outputs
-alt.networks<-as.list(rep(NA,length(MAB_sense)))
+alt_networks<-as.list(rep(NA,length(senses)))
 
-for (i in 1:length(alt.networks)) {
+for (i in 1:length(senses)) {
   #Copy initial Rpath parameters
   Rpath.alt<-copy(MAB.rpath.params)
   #Copy scenario
-  MAB.alt<-MAB_sense[[i]]
+  MAB.alt<-senses[[i]]
   #Assign biomass
   #Ignore Outside
   Biomass<-MAB.alt$B_BaseRef[2:(nliving+ndead+1)]
@@ -335,7 +347,7 @@ for (i in 1:length(alt.networks)) {
   Import[pp]<-gross
   Import<-Import[1:(nliving+ndead)]
   #Pack the model directly and store
-  alt.networks[[i]]<-enaR::pack(flow = QQ,
+  alt_networks[[i]]<-enaR::pack(flow = QQ,
                                 input = Import,
                                 export = Export,
                                 living = c(rep(TRUE,nliving),rep(FALSE,ndead)),
@@ -343,10 +355,29 @@ for (i in 1:length(alt.networks)) {
                                 storage = Biomass)
 }
 
-MAB_info<-lapply(alt.networks, enaAscendency)
-rm(alt.networks)
+#pull nodal flows out of each alternate model
+MAB_flow<-c()
+for (i in 1:length(alt_networks)){
+  alt_flow<-enaFlow(alt_networks[[i]],balance.override=T)
+  flow_group<-cbind(groups[1:(nliving+ndead)],alt_flow$T)
+  MAB_flow<-rbind(MAB_flow,flow_group)
+}
+#turn flows into one dataframe
+MAB_flow <- as.data.frame(MAB_flow)
+rownames(MAB_flow)<-c()
+colnames(MAB_flow)<-c("group","flow")
+MAB_flow<- MAB_flow %>% mutate(EPU = "MAB") %>%
+  mutate(flow=as.numeric(flow)) %>% 
+  mutate(condition = c(rep("bounded",length(MAB_sense)*(nliving+ndead)),rep("unbounded",length(MAB_sense_unbound)*(nliving+ndead))))
+
+#run ascendancy analysis on each alternate model
+MAB_info<-lapply(alt_networks, enaAscendency)
+
+rm(alt_networks)
 ```
-##3.3 Network conversion of GOM ecosense outputs
+
+##3.2 Network conversion of GOM ecosense outputs
+
 ```{r}
 #Copy initial Rpath parameters
 #Alternative scenarios will be the same except for Biomass, PB, QB, Diet, M0
@@ -365,7 +396,7 @@ pp <- which(groups == "Phytoplankton")
 #bind bounded and unbounded outputs
 senses<-c(GOM_sense,GOM_sense_unbound)
 #generate network models
-alt.networks<-as.list(rep(NA,length(senses)))
+alt_networks<-as.list(rep(NA,length(senses)))
 
 #start with thermodynamically bound outputs
 for (i in 1:length(senses)) {
@@ -432,35 +463,40 @@ for (i in 1:length(senses)) {
   Import<-abs(ifelse(BA<0,BA*Biomass,0)) 
   Import[pp]<-gross
   Import<-Import[1:(nliving+ndead)]
-  alt.networks[[i]]<-enaR::pack(flow = QQ,
+  alt_networks[[i]]<-enaR::pack(flow = QQ,
                                 input = Import,
                                 export = Export,
                                 living = c(rep(TRUE,nliving),rep(FALSE,ndead)),
                                 respiration = Resp,
                                 storage = Biomass)
 }
-```
-##3.3 Comparing bounded/unbounded
-```{r}
+
 #pull nodal flows out of each alternate model
-flow<-c()
-for (i in 1:length(alt.networks)){
-  alt.flow<-enaFlow(alt.networks[[i]],balance.override=T)
-  flow_group<-cbind(groups[1:57],alt.flow$T)
-  flow<-rbind(flow,flow_group)
+GOM_flow<-c()
+for (i in 1:length(alt_networks)){
+  alt_flow<-enaFlow(alt_networks[[i]],balance.override=T)
+  flow_group<-cbind(groups[1:(nliving+ndead)],alt_flow$T)
+  GOM_flow<-rbind(GOM_flow,flow_group)
 }
+#turn flows into one dataframe
+GOM_flow <- as.data.frame(GOM_flow)
+rownames(GOM_flow)<-c()
+colnames(GOM_flow)<-c("group","flow")
+GOM_flow<- GOM_flow %>% mutate(EPU = "GOM") %>% mutate(flow=as.numeric(flow)) %>% 
+  mutate(condition = c(rep("bounded",length(GOM_sense)*(nliving+ndead)),rep("unbounded",length(GOM_sense_unbound)*(nliving+ndead))))
 
 #run ascendancy analysis on each alternate model
-GOM_info<-lapply(alt.networks, enaAscendency)
+GOM_info<-lapply(alt_networks, enaAscendency)
 
-rm(alt.networks)
+rm(alt_networks)
+```
 
-#turn flows into dataframe
-flow <- as.data.frame(flow)
-rownames(flow)<-c()
-colnames(flow)<-c("group","flow")
-flow <- flow %>% mutate(flow=as.numeric(flow)) %>% 
-  mutate(condition = c(rep("bounded",length(GOM_sense)*(nliving+ndead)),rep("unbounded",length(GOM_sense_unbound)*(nliving+ndead))))
+##3.3 Comparing bounded/unbounded
+
+```{r}
+#turn all flows into one dataframe
+flow <- rbind(GOM_flow,MAB_flow)
+                          
 #which flow distributions are not the same?
 #test with Kolmogorov–Smirnov test
 ks_flow<-c()
@@ -474,20 +510,38 @@ ks_flow<-as.data.frame(ks_flow)
 colnames(ks_flow)<-c("Group","p")
 ks_flow$p<-as.numeric(ks_flow$p)
 
-#how does A/C compare?
+#how does A/C compare between bounded and unbounded?
 #Pick out relative ascendancy metric
-ASC.CAP<-c()
+#GOM
+ASC_CAP_GOM<-c()
 for (i in 1:length(GOM_info)){
-  ASC.CAP[i]<-GOM_info[[i]][[7]]
+  ASC_CAP_GOM[i]<-GOM_info[[i]][[7]]
 }
-ASC.CAP<-as.data.frame(cbind(ASC.CAP,c(rep("bounded",length(GOM_sense)),rep("unbounded",length(GOM_sense_unbound)))))
-ASC.CAP<- ASC.CAP %>% mutate(ASC.CAP = as.numeric(ASC.CAP)) %>% rename(condition = V2)
+ASC_CAP_GOM<-as.data.frame(cbind(ASC_CAP_GOM,c(rep("bounded",length(GOM_sense)),rep("unbounded",length(GOM_sense_unbound)))))
+ASC_CAP_GOM<- ASC_CAP_GOM %>% 
+  mutate(ASC_CAP = as.numeric(ASC_CAP_GOM)) %>% 
+  rename(condition = V2) %>% 
+  dplyr::select(-ASC_CAP_GOM) %>%
+  mutate(EPU = "GOM")
 
+#MAB
+ASC_CAP_MAB<-c()
+for (i in 1:length(MAB_info)){
+  ASC_CAP_MAB[i]<-MAB_info[[i]][[7]]
+}
+ASC_CAP_MAB<-as.data.frame(cbind(ASC_CAP_MAB,c(rep("bounded",length(MAB_sense)),rep("unbounded",length(MAB_sense_unbound)))))
+ASC_CAP_MAB<- ASC_CAP_MAB %>% 
+  mutate(ASC_CAP = as.numeric(ASC_CAP_MAB)) %>% 
+  rename(condition = V2) %>% 
+  dplyr::select(-ASC_CAP_MAB) %>%
+  mutate(EPU = "MAB")
+
+ASC_CAP<-rbind(ASC_CAP_GOM,ASC_CAP_MAB)
 ```
 
-
-#4 Figures
+#4 Figures 
 ## 4.1 Figure 1: Map
+
 ```{r}
 bts<-NEFSCspatial::BTS_Strata
 
@@ -516,6 +570,13 @@ bathy_sea <- bathydf; bathy_sea$V3[bathy_sea$V3 > 1] <- 0
 #ignore depths greater than 500m
 bathy_shelf<-bathy_sea %>% filter(V3 > -500) 
 
+#add EEZ line
+eez_boundaries <- sf::st_read("World_EEZ_v12_20231025", layer="eez_boundaries_v12")
+#filter for canadian boundaries
+#try a different approach
+eez_canada<- eez_boundaries %>% filter(TERRITORY1 == "Canada" | TERRITORY2 == "Canada" | TERRITORY3 == "Canada")
+  
+
 #make table of summary stats for each model
 GOM_summary<-cbind(nrow(GOM.params$model[Type <  2, ]),nrow(GOM.params$model[Type == 3, ]))
 GB_summary<-cbind(nrow(GB.params$model[Type <  2, ]),nrow(GB.params$model[Type == 3, ]))
@@ -534,13 +595,14 @@ NEUS <- ggplot() +
   geom_sf(data = Region, fill = NA, linewidth = .5, aes(color=EPU))+
   scale_color_manual(values = c("#FF7F00","#377EB8","#E41A1C"))+
   geom_sf(data = world)+
+  geom_sf(data=eez_canada)+
   coord_sf(xlim =c(-78, -65.5), ylim = c(35, 45)) + #zoomed to Hatteras and N
   labs(x = NULL, y = NULL,fill= "Depth (m)") +
   guides(color="none",fill=guide_colorbar(reverse = T))+
   annotate("text",x=-72.5,y=38.5,label="MAB",size=4)+
   annotate("text", x = -71.5, y = 43, label = "GOM", size = 4)+
   annotate("text", x = -66, y = 41, label = "GB", size = 4)+
-  annotation_custom(tableGrob(summary_stats,theme = tt),xmin=-69, xmax=-65.5, ymin=36.25, ymax=38)+
+  #annotation_custom(tableGrob(summary_stats,theme = tt),xmin=-69, xmax=-65.5, ymin=36.25, ymax=38)+
   ggspatial::annotation_scale(location = "br",bar_cols = c("grey60", "white")) +
   theme(plot.margin = margin(0, 0, 0, 0, "cm"),
         panel.grid.major = element_blank(),
@@ -554,13 +616,14 @@ NEUS
 ```
 
 ##4.2 Figure 2: Network diagrams
+
 ```{r}
 #start with MAB
 #pull network structure
 A<-enaStructure(orig.network_MAB)$A
 g<-igraph::graph_from_adjacency_matrix(A)
 
-groups_MAB<-MAB.rpath$Group
+groups<-MAB.rpath$Group
 #Count number of each group type
 nliving <- nrow(MAB.rpath.params$model[Type <  2, ])
 ndead   <- nrow(MAB.rpath.params$model[Type == 2, ])
@@ -603,7 +666,7 @@ coo[38,1]<-10
 #storage and flows from original model
 n_MAB<-ggnetwork(orig.network_MAB,layout=coo,weights="flow")
 #bind with TL info
-TL<-as.data.frame(cbind(MAB.rpath$TL,groups_MAB)) %>% rename(vertex.names=groups_MAB,TL=V1)
+TL<-as.data.frame(cbind(MAB.rpath$TL,groups)) %>% rename(vertex.names=groups,TL=V1)
 TL<-TL %>% mutate(TL = as.numeric(TL)) %>% mutate(TL = round(TL,2))
 n_MAB<-left_join(n_MAB,TL,by="vertex.names")
 
@@ -696,8 +759,12 @@ MAB_web<-ggplot(n_MAB,aes(x, y, xend = xend, yend = yend)) +
         legend.background=element_rect(fill="#EEEEEEFF"))
 
 MAB_web
+
+Figure_2<-GOM_web+MAB_web +plot_layout(guides="collect")
 ```
+
 ##4.3 Figure 3: Flow metric comparisons (bounded to unbounded)
+
 ```{r}
 #define groups of interest
 ks_sig<-ks_flow %>% filter(p<0.001)
@@ -709,15 +776,27 @@ flow %>% filter(group %in% ks_sig$Group) %>%
 ```
 
 ##4.4 Figure 4: A/C plots
+
 ```{r}
 #set color palette
 my.pal<-brewer.pal(8,"Set2")
-ggplot(data=ASC.CAP,aes(x=ASC.CAP,fill=condition))+
+
+ggplot(data=ASC_CAP_MAB,aes(x=ASC_CAP,fill=condition))+
   geom_density(alpha=0.4)+
-  geom_vline(xintercept=info.orig_GOM$ASC.CAP,color=my.pal[4],linetype="dashed",linewidth=1)+
-  geom_vline(xintercept = 0.39,color="navy",linetype="dashed",linewidth=1)+
+  geom_vline(xintercept=info_orig_MAB$ASC.CAP,color="darkorange",linetype="dashed",linewidth=1)+
+  geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
+  scale_fill_manual(values = c("green","red"))+
+  labs(x="A/C",y="density")
+
+ggplot(data=ASC_CAP_GOM,aes(x=ASC_CAP,fill=condition))+
+  geom_density(alpha=0.4)+
+  geom_vline(xintercept=info_orig_GOM$ASC.CAP,color=my.pal[4],linetype="dashed",linewidth=1)+
+  geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
+  labs(x="A/C",y="density")
+
+ggplot(data=ASC_CAP,aes(x=ASC_CAP,fill=EPU))+
+  geom_density(alpha=0.4)+
+  facet_wrap(~condition)+
+  scale_fill_manual(values=c("orange","blue"))+
   labs(x="A/C",y="density")
 ```
-
-
-
