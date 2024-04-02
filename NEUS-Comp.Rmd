@@ -2,13 +2,11 @@
 title: "Comparisons across NEUS Rpath models"
 author: "Sarah J. Weisberg"
 date: "2024-03-25"
-output: html_document
-editor_options: 
-  chunk_output_type: inline
+output: 
+  html_document
 ---
 
-#0 Prep 
-  Load packages and models for analysis
+#0 Prep Load packages and models for analysis
 
 ```{r}
 #data organizing and wrangling
@@ -57,7 +55,14 @@ Load in the balanced models from Github
 
 ```{r}
 #GB
-load(url("https://github.com/NOAA-EDAB/GBRpath/blob/master/data/GB_balanced_params.RData?raw=true"))
+url<-"https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB.bal.rda?raw=true"
+download.file(url,destfile = "GB.bal.rda")
+load("GB.bal.rda")
+
+url<-"https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB.params.bal.rda?raw=true"
+download.file(url,destfile = "GB.params.bal.rda")
+load("GB.params.bal.rda")
+rm(url)
 
 #GOM
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_Rpath.RData?raw=true"))
@@ -68,9 +73,60 @@ load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_para
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_Rpath_no_disc.RData?raw=true"))
 ```
 
-#1 Ecological Network Analysis (ENA)
+#1 Comparing the balanced models ##1.1 Groups & Fleets
 
-##1.1 Convert starting models to networks
+```{r}
+group<-c(GOM$Group,GB.bal$Group,MAB.rpath$Group)
+model<-c(rep("GOM",GOM$NUM_GROUPS),rep("GB",GB.bal$NUM_GROUPS),rep("MAB",MAB.rpath$NUM_GROUPS))
+all_groups<-as.data.frame(cbind(group,model)) 
+rownames(all_groups)<-c()
+
+groups_tally<-data.frame(unique(all_groups$group))
+colnames(groups_tally)<-"group"
+groups_tally <- groups_tally %>% 
+  mutate(GOM = ifelse(group %in% GOM$Group,"X",NA), GB = ifelse(group %in% GB.bal$Group,"X",NA),
+         MAB = ifelse(group %in% MAB.rpath$Group,"X",NA))
+
+#fix naming mismatches (temp fix)
+all_groups <- all_groups %>% mutate(group = ifelse(group == "Seals","Pinnipeds",
+                                                   ifelse(group=="BalWhale","BaleenWhales",
+                                                          ifelse(group=="Seabirds","SeaBirds",
+                                                                 ifelse(group=="ToothWhale","Odontocetes",group)))))
+
+
+#pbs
+all_groups<-all_groups %>%
+  mutate(PB = c(GOM.params$model$PB,GB.params.bal$model$PB,MAB.rpath.params$model$PB), 
+         QB = c(GOM.params$model$QB,GB.params.bal$model$QB,MAB.rpath.params$model$QB),
+         Biomass = c(GOM.params$model$Biomass,GB.params.bal$model$Biomass,MAB.rpath.params$model$Biomass),
+         EE = c(GOM$EE,GB.bal$EE,MAB.rpath$EE)) %>% 
+  filter(is.na(PB)==F) %>% 
+  mutate(PB = round(PB,2), QB = round(QB,2),Biomass=round(Biomass,2),EE=round(EE,2)) 
+
+ggplot(all_groups,aes(x=model,y=PB,color=model)) +
+  geom_bar(stat="identity")+
+  geom_text(aes(label=PB),vjust=1.6,size=3)+
+  facet_wrap(~group,scales = "free")+
+  theme(legend.position = "none")
+
+all_groups %>% filter(!group == "Phytoplankton")%>%  
+ggplot(aes(x=model,y=QB,color=model)) +
+  geom_bar(stat="identity")+
+  geom_text(aes(label=QB),vjust=1.6,size=3)+
+  facet_wrap(~group,scales = "free")+
+  theme(legend.position = "none")
+
+ggplot(data=all_groups,aes(x=model,y=Biomass,color=model)) +
+  geom_bar(stat="identity")+
+  geom_text(aes(label=Biomass),vjust=1.6,size=3)+
+  facet_wrap(~group,scales = "free")+
+  theme(legend.position = "none")
+
+```
+
+#2 Ecological Network Analysis (ENA)
+
+##2.1 Convert starting models to networks
 
 ```{r}
 #MAB
@@ -244,8 +300,7 @@ load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sens
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_unbound.RData?raw=true"))
 ```
 
-#3 ENA on Ecosense outputs 
-##3.1 Network conversion of MAB ecosense outputs
+#3 ENA on Ecosense outputs ##3.1 Network conversion of MAB ecosense outputs
 
 ```{r}
 #Copy initial Rpath parameters
@@ -539,8 +594,7 @@ ASC_CAP_MAB<- ASC_CAP_MAB %>%
 ASC_CAP<-rbind(ASC_CAP_GOM,ASC_CAP_MAB)
 ```
 
-#4 Figures 
-## 4.1 Figure 1: Map
+#4 Figures \## 4.1 Figure 1: Map
 
 ```{r}
 bts<-NEFSCspatial::BTS_Strata
@@ -555,12 +609,13 @@ bts_area<- bts %>%
 theme_set(theme_bw())
 
 #load in countries for plotting 
-world <- ne_countries(scale = "medium", returnclass = "sf")
+world <- ne_countries(scale = "large", returnclass = "sf")
 
 #generate region outline polygons
 Region <- bts_area %>% filter(!EPU == "other") %>%
   st_make_valid() %>% st_buffer(0) %>% group_by(EPU) %>% summarize()
-Region <- ms_filter_islands(Region, min_area=10000000000) #get rid of that weird one in the gulf of maine 
+Region <- ms_filter_islands(Region, min_area=100000000000000) #get rid of that weird one in the gulf of maine 
+#Region <- ms_simplify(Region,keep = 0.003, weighting = 11)
 
 # call in bathymetric data
 # convert  bathymetric contours into dataframe
@@ -592,17 +647,17 @@ NEUS <- ggplot() +
   geom_raster(data = bathy_shelf, aes(x = V1, y = V2, fill = V3)) +
   scale_fill_gradient(low="#586575", high="#daedf7",
                       breaks = c(-400,-250,-100),labels=c(400,250,100))+
-  geom_sf(data = Region, fill = NA, linewidth = .5, aes(color=EPU))+
-  scale_color_manual(values = c("#FF7F00","#377EB8","#E41A1C"))+
   geom_sf(data = world)+
-  geom_sf(data=eez_canada)+
+  geom_sf(data = Region, fill = NA, linewidth = .7)+
+  #scale_color_manual(values = c("#FF7F00","#377EB8","#E41A1C"))+
+  #geom_sf(data=eez_canada)+
   coord_sf(xlim =c(-78, -65.5), ylim = c(35, 45)) + #zoomed to Hatteras and N
   labs(x = NULL, y = NULL,fill= "Depth (m)") +
   guides(color="none",fill=guide_colorbar(reverse = T))+
   annotate("text",x=-72.5,y=38.5,label="MAB",size=4)+
   annotate("text", x = -71.5, y = 43, label = "GOM", size = 4)+
   annotate("text", x = -66, y = 41, label = "GB", size = 4)+
-  #annotation_custom(tableGrob(summary_stats,theme = tt),xmin=-69, xmax=-65.5, ymin=36.25, ymax=38)+
+  annotation_custom(tableGrob(summary_stats,theme = tt),xmin=-69, xmax=-65.5, ymin=36.25, ymax=38)+
   ggspatial::annotation_scale(location = "br",bar_cols = c("grey60", "white")) +
   theme(plot.margin = margin(0, 0, 0, 0, "cm"),
         panel.grid.major = element_blank(),
