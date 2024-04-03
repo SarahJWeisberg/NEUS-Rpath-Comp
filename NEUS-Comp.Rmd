@@ -73,8 +73,8 @@ load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_para
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_Rpath_no_disc.RData?raw=true"))
 ```
 
-#1 Comparing the balanced models ##1.1 Groups & Fleets
-
+#1 Comparing the balanced models 
+##1.1 Groups & Fleets
 ```{r}
 group<-c(GOM$Group,GB.bal$Group,MAB.rpath$Group)
 model<-c(rep("GOM",GOM$NUM_GROUPS),rep("GB",GB.bal$NUM_GROUPS),rep("MAB",MAB.rpath$NUM_GROUPS))
@@ -88,19 +88,16 @@ groups_tally <- groups_tally %>%
          MAB = ifelse(group %in% MAB.rpath$Group,"X",NA))
 
 #fix naming mismatches (temp fix)
-all_groups <- all_groups %>% mutate(group = ifelse(group == "Seals","Pinnipeds",
-                                                   ifelse(group=="BalWhale","BaleenWhales",
-                                                          ifelse(group=="Seabirds","SeaBirds",
-                                                                 ifelse(group=="ToothWhale","Odontocetes",group)))))
+all_groups <- all_groups %>% mutate(group = ifelse(group == "Seals","Pinnipeds", ifelse(group=="BalWhale","BaleenWhales",ifelse(group=="Seabirds","SeaBirds", ifelse(group=="ToothWhale","Odontocetes",group)))))
 
-
-#pbs
+#comparing groups 
 all_groups<-all_groups %>%
-  mutate(PB = c(GOM.params$model$PB,GB.params.bal$model$PB,MAB.rpath.params$model$PB), 
-         QB = c(GOM.params$model$QB,GB.params.bal$model$QB,MAB.rpath.params$model$QB),
-         Biomass = c(GOM.params$model$Biomass,GB.params.bal$model$Biomass,MAB.rpath.params$model$Biomass),
-         EE = c(GOM$EE,GB.bal$EE,MAB.rpath$EE)) %>% 
-  filter(is.na(PB)==F) %>% 
+  mutate(PB = c(GOM$PB,GB.bal$PB,MAB.rpath$PB), 
+         QB = c(GOM$QB,GB.bal$QB,MAB.rpath$QB),
+         Biomass = c(GOM$Biomass,GB.bal$Biomass,MAB.rpath$Biomass),
+         EE = c(GOM$EE,GB.bal$EE,MAB.rpath$EE),
+         TL = c(GOM$TL,GB.bal$TL,MAB.rpath$TL)) %>% 
+  filter(!PB == 0) %>% #get rid of fleets
   mutate(PB = round(PB,2), QB = round(QB,2),Biomass=round(Biomass,2),EE=round(EE,2)) 
 
 ggplot(all_groups,aes(x=model,y=PB,color=model)) +
@@ -109,20 +106,47 @@ ggplot(all_groups,aes(x=model,y=PB,color=model)) +
   facet_wrap(~group,scales = "free")+
   theme(legend.position = "none")
 
-all_groups %>% filter(!group == "Phytoplankton")%>%  
+all_groups %>% filter(!group %in% c("Phytoplankton","Detritus","Discards"))%>%  
 ggplot(aes(x=model,y=QB,color=model)) +
   geom_bar(stat="identity")+
   geom_text(aes(label=QB),vjust=1.6,size=3)+
   facet_wrap(~group,scales = "free")+
   theme(legend.position = "none")
 
-ggplot(data=all_groups,aes(x=model,y=Biomass,color=model)) +
+all_groups %>% 
+  mutate(Biomass = ifelse(model=="GB",Biomass/4,Biomass)) %>%
+  filter(!group %in% c("Detritus","Discards"))%>% 
+  ggplot(aes(x=model,y=Biomass,color=model)) +
   geom_bar(stat="identity")+
   geom_text(aes(label=Biomass),vjust=1.6,size=3)+
   facet_wrap(~group,scales = "free")+
   theme(legend.position = "none")
+```
+##1.2 Cumulative biomass vs. TL, cumulative production
+```{r}
+all_groups <- all_groups %>% 
+  filter(!group %in% c("Detritus","Discards")) %>%
+  group_by(model) %>% 
+  arrange(TL,.by_group=T) %>% 
+  mutate(Biomass = ifelse(model=="GB",Biomass/4,Biomass)) %>%
+  mutate(cum_B = cumsum(Biomass))
+  
+
+ggplot(data=all_groups,aes(x=TL,y=cum_B,color=model))+
+  geom_line()+
+  labs(y="Cumulative Biomass")
+  
+all_groups <- all_groups %>%
+  arrange(cum_B,.by_group = T) %>%
+  mutate(prod = PB*Biomass) %>%
+  mutate(cum_P = cumsum(prod))
+
+ggplot(data=all_groups,aes(x=cum_B,y=cum_P,color=model))+
+  geom_line()+
+  labs(x="Cumulative Biomass",y="Cumulative Production")
 
 ```
+
 
 #2 Ecological Network Analysis (ENA)
 
@@ -269,7 +293,7 @@ orig_network_GOM<-enaR::pack(flow = QQ,
                          storage = Biomass)
 ```
 
-##1.2 ENA on starting models
+##2.2 ENA on starting models
 
 ```{r}
 orig_networks<-c()
@@ -282,7 +306,7 @@ info_orig_MAB <- as.data.frame(info_orig_MAB)
 orig_info<-lapply(orig_networks, enaAscendency)
 ```
 
-#2 Analyze and compare ecosense outputs Load ecosense outputs - bounded and unbounded
+#3 Analyze and compare ecosense outputs Load ecosense outputs - bounded and unbounded
 
 ```{r}
 #load ecosense outputs
@@ -300,7 +324,8 @@ load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sens
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_unbound.RData?raw=true"))
 ```
 
-#3 ENA on Ecosense outputs ##3.1 Network conversion of MAB ecosense outputs
+#4 ENA on Ecosense outputs 
+##4.1 Network conversion of MAB ecosense outputs
 
 ```{r}
 #Copy initial Rpath parameters
@@ -431,7 +456,7 @@ MAB_info<-lapply(alt_networks, enaAscendency)
 rm(alt_networks)
 ```
 
-##3.2 Network conversion of GOM ecosense outputs
+##4.2 Network conversion of GOM ecosense outputs
 
 ```{r}
 #Copy initial Rpath parameters
@@ -546,7 +571,7 @@ GOM_info<-lapply(alt_networks, enaAscendency)
 rm(alt_networks)
 ```
 
-##3.3 Comparing bounded/unbounded
+##4.3 Comparing bounded/unbounded
 
 ```{r}
 #turn all flows into one dataframe
@@ -594,7 +619,8 @@ ASC_CAP_MAB<- ASC_CAP_MAB %>%
 ASC_CAP<-rbind(ASC_CAP_GOM,ASC_CAP_MAB)
 ```
 
-#4 Figures \## 4.1 Figure 1: Map
+#5 Figures 
+## 5.1 Figure 1: Map
 
 ```{r}
 bts<-NEFSCspatial::BTS_Strata
@@ -634,12 +660,12 @@ eez_canada<- eez_boundaries %>% filter(TERRITORY1 == "Canada" | TERRITORY2 == "C
 
 #make table of summary stats for each model
 GOM_summary<-cbind(nrow(GOM.params$model[Type <  2, ]),nrow(GOM.params$model[Type == 3, ]))
-GB_summary<-cbind(nrow(GB.params$model[Type <  2, ]),nrow(GB.params$model[Type == 3, ]))
+GB_summary<-cbind(nrow(GB.params.bal$model[Type <  2, ]),nrow(GB.params.bal$model[Type == 3, ]))
 MAB_summary<-cbind(nrow(MAB.rpath.params$model[Type <  2, ]),nrow(MAB.rpath.params$model[Type == 3, ]))
 summary_stats<-data.frame(rbind(GOM_summary,GB_summary,MAB_summary))
 rownames(summary_stats)<-c("GOM","GB","MAB")
 colnames(summary_stats)<-c("Living Groups","Fleets")
-tt<-ttheme_default(core=list(bg_params = list(fill=c("#377EB8","#FF7F00","#E41A1C"),alpha=0.7)))
+#tt<-ttheme_default(core=list(bg_params = list(fill=c("#377EB8","#FF7F00","#E41A1C"),alpha=0.7)))
 
 #plot  
 NEUS <- ggplot() +
@@ -648,7 +674,7 @@ NEUS <- ggplot() +
   scale_fill_gradient(low="#586575", high="#daedf7",
                       breaks = c(-400,-250,-100),labels=c(400,250,100))+
   geom_sf(data = world)+
-  geom_sf(data = Region, fill = NA, linewidth = .7)+
+  geom_sf(data = Region, fill = NA, linewidth = .75)+
   #scale_color_manual(values = c("#FF7F00","#377EB8","#E41A1C"))+
   #geom_sf(data=eez_canada)+
   coord_sf(xlim =c(-78, -65.5), ylim = c(35, 45)) + #zoomed to Hatteras and N
@@ -657,7 +683,7 @@ NEUS <- ggplot() +
   annotate("text",x=-72.5,y=38.5,label="MAB",size=4)+
   annotate("text", x = -71.5, y = 43, label = "GOM", size = 4)+
   annotate("text", x = -66, y = 41, label = "GB", size = 4)+
-  annotation_custom(tableGrob(summary_stats,theme = tt),xmin=-69, xmax=-65.5, ymin=36.25, ymax=38)+
+  annotation_custom(tableGrob(summary_stats),xmin=-69, xmax=-65.5, ymin=36.25, ymax=38)+
   ggspatial::annotation_scale(location = "br",bar_cols = c("grey60", "white")) +
   theme(plot.margin = margin(0, 0, 0, 0, "cm"),
         panel.grid.major = element_blank(),
@@ -670,7 +696,7 @@ NEUS <- ggplot() +
 NEUS
 ```
 
-##4.2 Figure 2: Network diagrams
+##5.2 Figure 2: Network diagrams
 
 ```{r}
 #start with MAB
@@ -818,7 +844,7 @@ MAB_web
 Figure_2<-GOM_web+MAB_web +plot_layout(guides="collect")
 ```
 
-##4.3 Figure 3: Flow metric comparisons (bounded to unbounded)
+##5.3 Figure 3: Flow metric comparisons (bounded to unbounded)
 
 ```{r}
 #define groups of interest
@@ -830,7 +856,7 @@ flow %>% filter(group %in% ks_sig$Group) %>%
   facet_wrap(vars(group),nrow = 3,scales = "free")
 ```
 
-##4.4 Figure 4: A/C plots
+##5.4 Figure 4: A/C plots
 
 ```{r}
 #set color palette
