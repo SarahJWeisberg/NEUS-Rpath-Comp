@@ -55,11 +55,11 @@ Load in the balanced models from Github
 
 ```{r}
 #GB
-url<-"https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB.bal.rda?raw=true"
+url<-"https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/alternate.GB.bal.rda?raw=true"
 download.file(url,destfile = "GB.bal.rda")
 load("GB.bal.rda")
 
-url<-"https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB.params.bal.rda?raw=true"
+url<-"https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/alternate.GB.params.bal.rda?raw=true"
 download.file(url,destfile = "GB.params.bal.rda")
 load("GB.params.bal.rda")
 rm(url)
@@ -76,6 +76,8 @@ load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_Rpat
 #1 Comparing the balanced models 
 ##1.1 Groups & Fleets
 ```{r}
+GB.bal<-alternate.GB.bal
+GB.params.bal<-alternate.GB.params.bal
 group<-c(GOM$Group,GB.bal$Group,MAB.rpath$Group)
 model<-c(rep("GOM",GOM$NUM_GROUPS),rep("GB",GB.bal$NUM_GROUPS),rep("MAB",MAB.rpath$NUM_GROUPS))
 all_groups<-as.data.frame(cbind(group,model)) 
@@ -87,8 +89,8 @@ groups_tally <- groups_tally %>%
   mutate(GOM = ifelse(group %in% GOM$Group,"X",NA), GB = ifelse(group %in% GB.bal$Group,"X",NA),
          MAB = ifelse(group %in% MAB.rpath$Group,"X",NA))
 
-#fix naming mismatches (temp fix)
-all_groups <- all_groups %>% mutate(group = ifelse(group == "Seals","Pinnipeds", ifelse(group=="BalWhale","BaleenWhales",ifelse(group=="Seabirds","SeaBirds", ifelse(group=="ToothWhale","Odontocetes",group)))))
+# #fix naming mismatches (temp fix)
+# all_groups <- all_groups %>% mutate(group = ifelse(group == "Seals","Pinnipeds", ifelse(group=="BalWhale","BaleenWhales",ifelse(group=="Seabirds","SeaBirds", ifelse(group=="ToothWhale","Odontocetes",group)))))
 
 #comparing groups 
 all_groups<-all_groups %>%
@@ -113,8 +115,7 @@ ggplot(aes(x=model,y=QB,color=model)) +
   facet_wrap(~group,scales = "free")+
   theme(legend.position = "none")
 
-all_groups %>% 
-  mutate(Biomass = ifelse(model=="GB",Biomass/4,Biomass)) %>%
+all_groups %>%
   filter(!group %in% c("Detritus","Discards"))%>% 
   ggplot(aes(x=model,y=Biomass,color=model)) +
   geom_bar(stat="identity")+
