@@ -63,6 +63,9 @@ url<-"https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/alternate.GB
 download.file(url,destfile = "GB.params.bal.rda")
 load("GB.params.bal.rda")
 rm(url)
+#rename
+GB.bal<-alternate.GB.bal
+GB.params.bal<-alternate.GB.params.bal
 
 #GOM
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_Rpath.RData?raw=true"))
@@ -76,8 +79,7 @@ load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_Rpat
 #1 Comparing the balanced models 
 ##1.1 Groups & Fleets
 ```{r}
-GB.bal<-alternate.GB.bal
-GB.params.bal<-alternate.GB.params.bal
+
 group<-c(GOM$Group,GB.bal$Group,MAB.rpath$Group)
 model<-c(rep("GOM",GOM$NUM_GROUPS),rep("GB",GB.bal$NUM_GROUPS),rep("MAB",MAB.rpath$NUM_GROUPS))
 all_groups<-as.data.frame(cbind(group,model)) 
@@ -88,9 +90,6 @@ colnames(groups_tally)<-"group"
 groups_tally <- groups_tally %>% 
   mutate(GOM = ifelse(group %in% GOM$Group,"X",NA), GB = ifelse(group %in% GB.bal$Group,"X",NA),
          MAB = ifelse(group %in% MAB.rpath$Group,"X",NA))
-
-# #fix naming mismatches (temp fix)
-# all_groups <- all_groups %>% mutate(group = ifelse(group == "Seals","Pinnipeds", ifelse(group=="BalWhale","BaleenWhales",ifelse(group=="Seabirds","SeaBirds", ifelse(group=="ToothWhale","Odontocetes",group)))))
 
 #comparing groups 
 all_groups<-all_groups %>%
@@ -116,7 +115,7 @@ ggplot(aes(x=model,y=QB,color=model)) +
   theme(legend.position = "none")
 
 all_groups %>%
-  filter(!group %in% c("Detritus","Discards"))%>% 
+  filter(!group %in% c("Discards"))%>% 
   ggplot(aes(x=model,y=Biomass,color=model)) +
   geom_bar(stat="identity")+
   geom_text(aes(label=Biomass),vjust=1.6,size=3)+
@@ -129,7 +128,6 @@ all_groups <- all_groups %>%
   filter(!group %in% c("Detritus","Discards")) %>%
   group_by(model) %>% 
   arrange(TL,.by_group=T) %>% 
-  mutate(Biomass = ifelse(model=="GB",Biomass/4,Biomass)) %>%
   mutate(cum_B = cumsum(Biomass))
   
 
@@ -222,7 +220,73 @@ orig_network_MAB<-enaR::pack(flow = QQ,
                          respiration = Resp,
                          storage = Biomass)
 
+#GB
+#Set up model with group names and types
+groups<-as.vector(GB.bal$Group)
 
+#Count number of each group type
+nliving <- nrow(GB.params.bal$model[Type <  2, ])
+ndead   <- nrow(GB.params.bal$model[Type == 2, ])
+
+#find index of pp
+pp <- which(groups == "Phytoplankton")
+
+#pull diet
+diet<-GB.bal$DC
+#Get consumption values by DC*QB*Biomass
+QQ<-matrix(nrow = (nliving + ndead + 1),ncol=nliving)
+for (j in 1:nliving){
+  QQ[,j]<-diet[,j]*GB.bal$QB[j]*GB.bal$Biomass[j]
+}
+#Ignore Imports
+QQ<-QQ[1:(nliving+ndead),]
+colnames(QQ)<-groups[1:nliving]
+rownames(QQ)<-groups[1:(nliving+ndead)]
+#Calculate flow to detritus
+M0<-GB.bal$PB*(1-GB.bal$EE)
+Detritus<-(M0*GB.bal$Biomass+GB.bal$QB*GB.bal$Biomass*GB.bal$Unassim)*GB.bal$DetFate[,1]
+Detritus<-Detritus[1:(nliving+ndead)]
+#Flow to detritus from detritus = 0
+Detritus[(nliving+1)]<-0
+#Bind diet matrix (QQ) with flow to detritus, discards
+QQ<-cbind(QQ,Detritus)
+#Calculate exports
+#First sum catch
+Catch<-rowSums(GB.bal$Landings)
+#Add positive biomass accumulation terms
+Export<-Catch+(ifelse(GB.bal$BA>0,GB.bal$BA*GB.bal$Biomass,0))
+Export<-Export[1:(nliving+ndead)]
+for (i in 1:ndead){
+  Export[nliving+i]<-M0[nliving+i]*GB.bal$Biomass[nliving+i]
+}
+#Calculate respiration
+#Assume detritus, discards have 0 respiration
+Resp<-((1-GB.bal$Unassim)*GB.bal$QB-GB.bal$PB)*GB.bal$Biomass
+Resp<-ifelse(Resp>0,Resp,0)
+Resp<-Resp[1:(nliving+ndead)]
+Resp[(nliving+1):(nliving+ndead)]<-0
+#Deal with Primary Production
+#First, estimate GROSS production = Imports
+#P/B in Ecopath model gives NET production
+#Ratio of gross:net is going to be fixed based on EMAX
+gross_net<-(3284.948+821.2371)/3284.948
+gross<-gross_net*GB.bal$PB[pp]*GB.bal$Biomass[pp]
+Resp[pp]<-gross-(GB.bal$PB[pp]*GB.bal$Biomass[pp])
+#Calculate imports
+#Negative biomass accumulation terms
+#Gross primary production
+Import<-abs(ifelse(GB.bal$BA<0,GB.bal$BA*GB.bal$Biomass,0))
+Import[pp]<-gross
+Import<-Import[1:(nliving+ndead)]
+#Trim biomass
+Biomass<-GB.bal$Biomass[1:(nliving+ndead)]
+#Pack the model directly and store
+orig_network_GB<-enaR::pack(flow = QQ,
+                         input = Import,
+                         export = Export,
+                         living = c(rep(TRUE,nliving),rep(FALSE,1)),
+                         respiration = Resp,
+                         storage = Biomass)
 #GOM
 #Set up model with group names and types
 groups<-as.vector(GOM$Group)
@@ -297,6 +361,7 @@ orig_network_GOM<-enaR::pack(flow = QQ,
 ##2.2 ENA on starting models
 
 ```{r}
+library(enaR)
 orig_networks<-c()
 orig_networks$GOM<-orig_network_GOM
 info_orig_GOM<-enaAscendency(orig_network_GOM)
@@ -314,7 +379,7 @@ orig_info<-lapply(orig_networks, enaAscendency)
 #need to adjust these file names to be more concise
 #MAB
 #with thermodynamic bounding
-load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_50k_2024_no_disc.RData?raw=true"))
+load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_Rpath_50k_2024.RData?raw=true"))
 #without thermodynamic bounding
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_unbound.RData?raw=true"))
 
@@ -329,6 +394,7 @@ load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sens
 ##4.1 Network conversion of MAB ecosense outputs
 
 ```{r}
+library(enaR)
 #Copy initial Rpath parameters
 #Alternative scenarios will be the same except for Biomass, PB, QB, Diet, M0
 alt <- copy(MAB.rpath.params)
@@ -700,9 +766,10 @@ NEUS
 ##5.2 Figure 2: Network diagrams
 
 ```{r}
+library(enaR)
 #start with MAB
 #pull network structure
-A<-enaStructure(orig.network_MAB)$A
+A<-enaStructure(orig_network_MAB)$A
 g<-igraph::graph_from_adjacency_matrix(A)
 
 groups<-MAB.rpath$Group
@@ -746,11 +813,54 @@ coo[38,1]<-10
 
 #use ggnetwork to create a network geometry
 #storage and flows from original model
-n_MAB<-ggnetwork(orig.network_MAB,layout=coo,weights="flow")
+n_MAB<-ggnetwork(orig_network_MAB,layout=coo,weights="flow")
 #bind with TL info
 TL<-as.data.frame(cbind(MAB.rpath$TL,groups)) %>% rename(vertex.names=groups,TL=V1)
 TL<-TL %>% mutate(TL = as.numeric(TL)) %>% mutate(TL = round(TL,2))
 n_MAB<-left_join(n_MAB,TL,by="vertex.names")
+
+#GB
+#pull network structure
+A<-enaStructure(orig_network_GB)$A
+g<-igraph::graph_from_adjacency_matrix(A)
+
+groups<-GB.bal$Group
+#Count number of each group type
+nliving <- nrow(GB.params.bal$model[Type <  2, ])
+ndead   <- nrow(GB.params.bal$model[Type == 2, ])
+
+#get x and y coordinates
+#derived from the plotfw function (https://rfrelat.github.io/BalticFoodWeb.html)
+nylevel<-7 #determines number of levels along y-axis
+n <- vcount(g) #number of vertices
+tl<-GB.bal$TL[1:(nliving+ndead)] #pull trophic level calculations from rpath
+bks <- c(0.9, seq(1.9, max(tl), length.out = nylevel))
+ynod <- cut(tl, breaks = bks, include.lowest = TRUE, 
+            labels = 1:(length(bks)-1)) #assign group to a y-level
+maxx <- max(table(ynod)) #looks for max # of groups at any y-level
+xnod <- rep(0,n)
+for (i in 1:nylevel){
+  l <- sum(ynod==i)
+  
+  ltr <- (l/maxx)**(1/2)*maxx
+  if (l>1) {
+    xnod[ynod==i] <- seq(-ltr,ltr,length.out = l)
+  } else {
+    xnod[ynod==i] <- 0
+  }
+}
+
+coo <- cbind(xnod,tl) #these inform x and y coordinates
+
+#scootch Bacteria to the left to get more space in the bottom of the web
+
+#use ggnetwork to create a network geometry
+#storage and flows from original model
+n_GB<-ggnetwork(orig_network_GB,layout=coo,weights="flow")
+#bind with TL info
+TL<-as.data.frame(cbind(GB.bal$TL,groups)) %>% rename(vertex.names=groups,TL=V1)
+TL<-TL %>% mutate(TL = as.numeric(TL)) %>% mutate(TL = round(TL,2))
+n_GB<-left_join(n_GB,TL,by="vertex.names")
 
 #GOM
 #pull group list
@@ -759,7 +869,7 @@ groups_GOM<-GOM$Group
 nliving <- nrow(GOM.params$model[Type <  2, ])
 ndead   <- nrow(GOM.params$model[Type == 2, ])
 
-A<-enaStructure(orig.network_GOM)$A
+A<-enaStructure(orig_network_GOM)$A
 g<-igraph::graph_from_adjacency_matrix(A)
 
 #get x and y coordinates
@@ -792,7 +902,7 @@ coo[48,1]<-16
 
 #use ggnetwork to create a network geometry
 #storage and flows from original model
-n_GOM<-ggnetwork(orig.network_GOM,layout=coo,weights="flow")
+n_GOM<-ggnetwork(orig_network_GOM,layout=coo,weights="flow")
 #bind with TL info
 TL<-as.data.frame(cbind(GOM$TL,groups_GOM)) %>% rename(vertex.names=groups_GOM,TL=V1)
 TL<-TL %>% mutate(TL = as.numeric(TL)) %>% mutate(TL = round(TL,2))
@@ -800,9 +910,12 @@ n_GOM<-left_join(n_GOM,TL,by="vertex.names")
 
 #adjust Detritus storage so it doesn't swamp everything
 det_MAB<-max(MAB.rpath$Biomass)
+det_GB<-max(GB.bal$Biomass)
 det_GOM<-max(GOM$Biomass)
 n_MAB<-n_MAB %>% mutate(storage_adjust = ifelse(storage == det_MAB,100,storage))
 n_MAB <- n_MAB %>% mutate(storage_adjust = ifelse(storage < 0.05,0.05,storage_adjust))
+n_GB<-n_GB %>% mutate(storage_adjust = ifelse(storage == det_GB,100,storage))
+n_GB <- n_GB %>% mutate(storage_adjust = ifelse(storage < 0.05,0.05,storage_adjust))
 n_GOM <- n_GOM %>% mutate(storage_adjust = ifelse(storage < 0.05,0.05,storage))
 n_GOM <- n_GOM %>% mutate(storage_adjust = ifelse(storage == det_GOM,100,storage))
 
@@ -824,6 +937,24 @@ GOM_web<-ggplot(n_GOM,aes(x, y, xend = xend, yend = yend)) +
 
 GOM_web
 
+GB_web<-ggplot(n_GB,aes(x, y, xend = xend, yend = yend)) +
+  geom_edges(arrow = arrow(length = unit(7, "pt"), type = "open"),
+             curvature = 0.15,position="jitter",
+             aes(color=TL,linewidth=flow)) +
+  scale_color_gradientn(colors = turbo(6))+
+  scale_linewidth(range = c(0.15,9))+
+  geom_nodelabel(aes(label=vertex.names,size=((storage_adjust))),show.legend = F) +
+  scale_size(range=c(2.5,10))+
+  guides(linewidth="none")+
+  annotate("text",x=0.025,y=0.975,label="GB",size=9)+
+  theme_blank(legend.position="none")+
+  theme_blank(legend.position=c(0.8,0.2))+
+  theme(panel.background = element_rect(fill="#EEEEEEFF"),
+        plot.background = element_rect(fill="#EEEEEEFF"),
+        legend.background=element_rect(fill="#EEEEEEFF"))
+
+GB_web
+
 MAB_web<-ggplot(n_MAB,aes(x, y, xend = xend, yend = yend)) +
   geom_edges(arrow = arrow(length = unit(7, "pt"), type = "open"),
              curvature = 0.15,position="jitter",
@@ -843,17 +974,20 @@ MAB_web<-ggplot(n_MAB,aes(x, y, xend = xend, yend = yend)) +
 MAB_web
 
 Figure_2<-GOM_web+MAB_web +plot_layout(guides="collect")
+Figure_2
+
 ```
 
 ##5.3 Figure 3: Flow metric comparisons (bounded to unbounded)
 
 ```{r}
 #define groups of interest
-ks_sig<-ks_flow %>% filter(p<0.001)
+ks_sig<-ks_flow %>% filter(p<0.05)
 
 flow %>% filter(group %in% ks_sig$Group) %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.4)+
+    scale_fill_manual(values = c("green","red"))+
   facet_wrap(vars(group),nrow = 3,scales = "free")
 ```
 
