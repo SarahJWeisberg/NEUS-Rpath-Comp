@@ -366,6 +366,9 @@ orig_networks<-c()
 orig_networks$GOM<-orig_network_GOM
 info_orig_GOM<-enaAscendency(orig_network_GOM)
 info_orig_GOM <- as.data.frame(info_orig_GOM)
+orig_networks$GB<-orig_network_GB
+info_orig_GB<-enaAscendency(orig_network_GB)
+info_orig_GB <- as.data.frame(info_orig_GB)
 orig_networks$MAB<-orig_network_MAB
 info_orig_MAB<-enaAscendency(orig_network_MAB)
 info_orig_MAB <- as.data.frame(info_orig_MAB)
@@ -382,6 +385,12 @@ orig_info<-lapply(orig_networks, enaAscendency)
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_Rpath_50k_2024.RData?raw=true"))
 #without thermodynamic bounding
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_unbound.RData?raw=true"))
+
+#GB
+#with thermodynamic bounding
+load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_bound.RData?raw=true"))
+#without thermodynamic bounding
+load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_unbound.RData?raw=true"))
 
 #GOM
 #with thermodynamic bounding
@@ -522,8 +531,121 @@ MAB_info<-lapply(alt_networks, enaAscendency)
 
 rm(alt_networks)
 ```
+##4.2 Network conversion of GB ecosense outputs
 
-##4.2 Network conversion of GOM ecosense outputs
+```{r}
+#Copy initial Rpath parameters
+#Alternative scenarios will be the same except for Biomass, PB, QB, Diet, M0
+alt<-copy(GB.params.bal)
+alt.diet<-copy(GB.params.bal$diet)
+#Set up model with group names and types
+groups<-as.vector(GB.bal$Group)
+#Count number of each group type
+ngroups <- nrow(alt$model)
+nliving <- nrow(alt$model[Type <  2, ])
+ndead   <- nrow(alt$model[Type == 2, ])
+ngear   <- nrow(alt$model[Type == 3, ])
+#find index of pp
+pp <- which(groups == "Phytoplankton")
+
+#bind bounded and unbounded outputs
+senses<-c(GB_sense,GB_sense_unbound)
+#generate network models
+alt_networks<-as.list(rep(NA,length(senses)))
+
+#start with thermodynamically bound outputs
+for (i in 1:length(senses)) {
+  model<-senses[[i]]
+  #Assign biomass, ignore Outside
+  Biomass<-model$B_BaseRef[2:(nliving+ndead+1)]
+  #Assign PB
+  PB<-model$PBopt[2:(nliving+ndead+1)]
+  #Assign QB
+  QB<-model$FtimeQBOpt[2:(nliving+ndead+1)]
+  QB[pp]<-0
+  #Assign M0
+  M0<-model$MzeroMort[2:(nliving+ndead+1)]
+  #Assign diet
+  #Remove first two entries which represent 'outside' flow to 'outside' and 'PP'
+  PreyFrom<-model$PreyFrom[-c(1,2)]
+  PreyTo<-model$PreyTo[-c(1,2)]
+  predpreyQ<-model$QQ[-c(1,2)]
+  #Fill consumption matrix
+  QQ<-matrix(nrow = (nliving + ndead + 1),ncol=nliving)
+  for (j in 1:length(PreyFrom)){
+    prey<-PreyFrom[j]
+    pred<-PreyTo[j]
+    QQ[prey,pred]<-predpreyQ[j]
+  }
+  #convert NAs to 0s
+  QQ[which(is.na(QQ)==T)]<-0
+  #Ignore Imports
+  QQ<-QQ[1:(nliving+ndead),]
+  colnames(QQ)<-groups[1:nliving]
+  rownames(QQ)<-groups[1:(nliving+ndead)]
+  #Calculate flows to detritus
+  Unassim<-model$UnassimRespFrac[2:(nliving+ndead+1)]
+  DetFate<-model$DetFrac[2:(nliving+ndead+1)]
+  Detritus<-(M0*Biomass+QB*Biomass*Unassim)*DetFate
+  #Flow to detritus from detritus = 0
+  Detritus[(nliving+ndead)]<-0
+  #Bind diet matrix (QQ) with flow to detritus, discards
+  QQ<-cbind(QQ,Detritus)
+  #Calculate exports
+  #First sum catch
+  #Catch doesn't change in Ecosense so am pulling from original model
+  Catch<-rowSums(GB.bal$Landings)[1:(nliving+ndead)]
+  #Add positive biomass accumulation terms
+  BA<-GB.bal$BA[1:(nliving+ndead)]
+  Export<-Catch+(ifelse(BA>0,BA*Biomass,0))
+  for (k in 1:ndead){
+    Export[nliving+k]<-M0[(nliving+k)]*Biomass[(nliving+k)]
+  }
+  Export<-Export[1:(nliving+ndead)]
+  #Calculate respiration
+  #Assume detritus, discards have 0 respiration
+  Resp<-((1-Unassim)*QB-PB)*Biomass
+  Resp<-ifelse(Resp>0,Resp,0)
+  Resp<-Resp[1:(nliving+ndead)]
+  Resp[(nliving+1):(nliving+ndead)]<-0
+  #Deal with Primary Production
+  #First, estimate GROSS production = Imports
+  #P/B in Ecopath model gives NET production
+  #Ratio of gross:net is going to be fixed based on EMAX
+  gross_net<-(3284.948+821.2371)/3284.948
+  gross<-gross_net*PB[pp]*Biomass[pp]
+  Resp[pp]<-gross-(PB[pp]*Biomass[pp])
+  Import<-abs(ifelse(BA<0,BA*Biomass,0)) 
+  Import[pp]<-gross
+  Import<-Import[1:(nliving+ndead)]
+  alt_networks[[i]]<-enaR::pack(flow = QQ,
+                                input = Import,
+                                export = Export,
+                                living = c(rep(TRUE,nliving),rep(FALSE,ndead)),
+                                respiration = Resp,
+                                storage = Biomass)
+}
+
+#pull nodal flows out of each alternate model
+GB_flow<-c()
+for (i in 1:length(alt_networks)){
+  alt_flow<-enaFlow(alt_networks[[i]],balance.override=T)
+  flow_group<-cbind(groups[1:(nliving+ndead)],alt_flow$T)
+  GB_flow<-rbind(GB_flow,flow_group)
+}
+#turn flows into one dataframe
+GB_flow <- as.data.frame(GB_flow)
+rownames(GB_flow)<-c()
+colnames(GB_flow)<-c("group","flow")
+GB_flow<- GB_flow %>% mutate(EPU = "GB") %>% mutate(flow=as.numeric(flow)) %>% 
+  mutate(condition = c(rep("bounded",length(GB_sense)*(nliving+ndead)),rep("unbounded",length(GB_sense_unbound)*(nliving+ndead))))
+
+#run ascendancy analysis on each alternate model
+GB_info<-lapply(alt_networks, enaAscendency)
+
+rm(alt_networks)
+```
+##4.3 Network conversion of GOM ecosense outputs
 
 ```{r}
 #Copy initial Rpath parameters
@@ -654,7 +776,7 @@ for(i in 1:(nliving+ndead)){
   ks_flow<-rbind(ks_flow,c(groups[i],test$p.value))
 }
 ks_flow<-as.data.frame(ks_flow)
-colnames(ks_flow)<-c("Group","p")
+colnames(ks_flow)<-c("group","p")
 ks_flow$p<-as.numeric(ks_flow$p)
 
 #how does A/C compare between bounded and unbounded?
@@ -671,6 +793,18 @@ ASC_CAP_GOM<- ASC_CAP_GOM %>%
   dplyr::select(-ASC_CAP_GOM) %>%
   mutate(EPU = "GOM")
 
+#GB
+ASC_CAP_GB<-c()
+for (i in 1:length(GB_info)){
+  ASC_CAP_GB[i]<-GB_info[[i]][[7]]
+}
+ASC_CAP_GB<-as.data.frame(cbind(ASC_CAP_GB,c(rep("bounded",length(GB_sense)),rep("unbounded",length(GB_sense_unbound)))))
+ASC_CAP_GB<- ASC_CAP_GB %>% 
+  mutate(ASC_CAP = as.numeric(ASC_CAP_GB)) %>% 
+  rename(condition = V2) %>% 
+  dplyr::select(-ASC_CAP_GB) %>%
+  mutate(EPU = "GB")
+
 #MAB
 ASC_CAP_MAB<-c()
 for (i in 1:length(MAB_info)){
@@ -683,7 +817,7 @@ ASC_CAP_MAB<- ASC_CAP_MAB %>%
   dplyr::select(-ASC_CAP_MAB) %>%
   mutate(EPU = "MAB")
 
-ASC_CAP<-rbind(ASC_CAP_GOM,ASC_CAP_MAB)
+ASC_CAP<-rbind(ASC_CAP_GOM,ASC_CAP_GB,ASC_CAP_MAB)
 ```
 
 #5 Figures 
@@ -975,27 +1109,34 @@ MAB_web
 
 Figure_2<-GOM_web+MAB_web +plot_layout(guides="collect")
 Figure_2
+  #ggsave(filename= paste("figures/windows", name, ".jpg"), plot=p, width = 15, height=10, units=c("cm"), dpi=500)
 
 ```
 
 ##5.3 Figure 3: Flow metric comparisons (bounded to unbounded)
 
 ```{r}
-#define groups of interest
-ks_sig<-ks_flow %>% filter(p<0.05)
 
-flow %>% filter(group %in% ks_sig$Group) %>%
+#define groups of interest
+flow<-left_join(flow,ks_flow,by="group")
+ks_sig<-ks_flow %>% filter(p<0.05) %>% arrange(p)
+
+flow %>% 
+  #filter(group %in% ks_sig$group) %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.4)+
-    scale_fill_manual(values = c("green","red"))+
-  facet_wrap(vars(group),nrow = 3,scales = "free")
+  #scale_fill_manual(values = c("green","red"))+
+  scale_fill_manual(values = c(my.pal2[8],my.pal2[10]))+
+  #facet_wrap(facets = ~fct_reorder(group,p),nrow = 3,scales = "free")
+  facet_wrap(vars(group),nrow=4,scales="free")
 ```
 
 ##5.4 Figure 4: A/C plots
 
 ```{r}
 #set color palette
-my.pal<-brewer.pal(8,"Set2")
+my.pal1<-brewer.pal(8,"Set2")
+my.pal2<-brewer.pal(10,"Paired")
 
 ggplot(data=ASC_CAP_MAB,aes(x=ASC_CAP,fill=condition))+
   geom_density(alpha=0.4)+
@@ -1004,15 +1145,23 @@ ggplot(data=ASC_CAP_MAB,aes(x=ASC_CAP,fill=condition))+
   scale_fill_manual(values = c("green","red"))+
   labs(x="A/C",y="density")
 
+ggplot(data=ASC_CAP_GB,aes(x=ASC_CAP,fill=condition))+
+  geom_density(alpha=0.4)+
+  geom_vline(xintercept=info_orig_GB$ASC.CAP,color="blue",linetype="dashed",linewidth=1)+
+  geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
+  scale_fill_manual(values = c(my.pal2[8],my.pal2[10]))+
+  labs(x="A/C",y="density")
+
 ggplot(data=ASC_CAP_GOM,aes(x=ASC_CAP,fill=condition))+
   geom_density(alpha=0.4)+
-  geom_vline(xintercept=info_orig_GOM$ASC.CAP,color=my.pal[4],linetype="dashed",linewidth=1)+
+  geom_vline(xintercept=info_orig_GOM$ASC.CAP,color=my.pal1[4],linetype="dashed",linewidth=1)+
   geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   labs(x="A/C",y="density")
 
 ggplot(data=ASC_CAP,aes(x=ASC_CAP,fill=EPU))+
   geom_density(alpha=0.4)+
-  facet_wrap(~condition)+
-  scale_fill_manual(values=c("orange","blue"))+
+  geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
+  facet_wrap(~condition,nrow=2)+
+  scale_fill_manual(values=c("orange","blue","pink"))+
   labs(x="A/C",y="density")
 ```
