@@ -1,14 +1,14 @@
 RPATH,Biomass,Diet,PB/QB,Additional PB/QB
-AmLobster,Bottom trawl survey,Link et al. 2008,Buchheister et al 2017,Zhang & Chen 2007
+AmLobster,Bottom trawl survey,Link et al. 2006,Buchheister et al 2017,Zhang & Chen 2007
 AmPlaice,Bottom trawl survey,Food habits database,Heymans 2001,Fishbase
 AtlCroaker,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
 AtlHalibut,Bottom trawl survey,Food habits database,Bundy et al. 2000,
 AtlHerring,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
 AtlMackerel,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
-AtlMenhaden,Buchheister et al 2017,Link et al. 2008,Buchheister et al 2017,Fishbase
-AtlScallop,Bottom trawl survey,Link et al. 2008,Buchheister et al 2017,
-Bacteria,Link et al. 2008,Link et al. 2008,Link et al. 2008,
-BaleenWhales,Link et al. 2008,"Smith et al., 2015",Link et al. 2008,Buchheister et al 2017
+AtlMenhaden,Buchheister et al 2017,Link et al. 2006,Buchheister et al 2017,Fishbase
+AtlScallop,Bottom trawl survey,Link et al. 2006,Buchheister et al 2017,
+Bacteria,Link et al. 2006,Link et al. 2006,Link et al. 2006,
+BaleenWhales,Link et al. 2006,"Smith et al., 2015",Link et al. 2006,Buchheister et al 2017
 Barndoor,Bottom trawl survey,Food habits database,Lucey 2019,Fishbase
 BlackSeaBass,Bottom trawl survey,Food habits database,Lucey 2019,Fishbase
 Bluefish,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
@@ -16,47 +16,47 @@ Butterfish,Bottom trawl survey,Food habits database,Buchheister et al 2017,
 Cod,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
 Cusk,Bottom trawl survey,Food habits database,Buchheister et al 2017,
 Fourspot,Bottom trawl survey,Food habits database,Lucey 2019,Fishbase
-GelZooplankton,Link et al. 2008,Link et al. 2008,Link et al. 2008,Buchheister et al 2017
+GelZooplankton,Link et al. 2006,Link et al. 2006,Link et al. 2006,Buchheister et al 2017
 Goosefish,Bottom trawl survey,Food habits database,Lucey 2019,Fishbase
 Haddock,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
-HMS,Bottom trawl survey,Food habits database,Link et al. 2008,
-Illex,Bottom trawl survey,Link et al. 2008,Buchheister et al 2017,
-Krill,Link et al. 2008,Link et al. 2008,Link et al. 2008,
-LgCopepods,Link et al. 2008/EcoMon,Link et al. 2008,Link et al. 2008,
+HMS,Bottom trawl survey,Food habits database,Link et al. 2006,
+Illex,Bottom trawl survey,Link et al. 2006,Buchheister et al 2017,
+Krill,Link et al. 2006,Link et al. 2006,Link et al. 2006,
+LgCopepods,Link et al. 2006/EcoMon,Link et al. 2006,Link et al. 2006,
 LittleSkate,Bottom trawl survey,Food habits database,Lucey 2019,Fishbase
-Loligo,Bottom trawl survey,Link et al. 2008,Buchheister et al 2017,
-Macrobenthos,Link et al. 2008,Link et al. 2008,Buchheister et al 2017,
-Megabenthos,Link et al. 2008,Link et al. 2008,Lucey 2019,
+Loligo,Bottom trawl survey,Link et al. 2006,Buchheister et al 2017,
+Macrobenthos,Link et al. 2006,Link et al. 2006,Buchheister et al 2017,
+Megabenthos,Link et al. 2006,Link et al. 2006,Lucey 2019,
 Mesopelagics,Bottom trawl survey,Food habits database,Buchheister et al 2017,
-Micronekton,Link et al. 2008,Link et al. 2008,Link et al. 2008,Buchheister et al 2017
-Microzooplankton,Link et al. 2008,Link et al. 2008,Link et al. 2008,Buchheister et al 2017
-NShrimp,Bottom trawl survey,Link et al. 2008,Heymans 2001,
+Micronekton,Link et al. 2006,Link et al. 2006,Link et al. 2006,Buchheister et al 2017
+Microzooplankton,Link et al. 2006,Link et al. 2006,Link et al. 2006,Buchheister et al 2017
+NShrimp,Bottom trawl survey,Link et al. 2006,Heymans 2001,
 OceanPout,Bottom trawl survey,Food habits database,Lucey 2019,Fishbase
-OceanQuahog,Clam survey,Link et al. 2008,Buchheister et al 2017,
-Odontocetes,Link et al. 2008,Link et al. 2008,Link et al. 2008,Buchheister et al 2017
-OtherCephalopods,Link et al. 2008,Link et al. 2008,Buchheister et al 2017,
-OtherDemersals,Bottom trawl survey,Link et al. 2008,Buchheister et al 2017,Link et al. 2008
+OceanQuahog,Clam survey,Link et al. 2006,Buchheister et al 2017,
+Odontocetes,Link et al. 2006,Link et al. 2006,Link et al. 2006,Buchheister et al 2017
+OtherCephalopods,Link et al. 2006,Link et al. 2006,Buchheister et al 2017,
+OtherDemersals,Bottom trawl survey,Link et al. 2006,Buchheister et al 2017,Link et al. 2006
 OtherPelagics,Bottom trawl survey,Food habits database,Buchheister et al 2017,Lucey 2019
-OtherShrimps,Bottom trawl survey,Link et al. 2008,Buchheister et al 2017,
+OtherShrimps,Bottom trawl survey,Link et al. 2006,Buchheister et al 2017,
 OtherSkates,Bottom trawl survey,Food habits database,Heymans 2001,Lucey 2019
-Phytoplankton,Link et al. 2008,Link et al. 2008,Link et al. 2008,Buchheister et al 2017
-Pinnipeds,Link et al. 2008,Link et al. 2008,Link et al. 2008,Buchheister et al 2017
+Phytoplankton,Link et al. 2006,Link et al. 2006,Link et al. 2006,Buchheister et al 2017
+Pinnipeds,Link et al. 2006,Link et al. 2006,Link et al. 2006,Buchheister et al 2017
 Pollock,Bottom trawl survey,Food habits database,Heymans 2001,
 Redfish,Bottom trawl survey,Food habits database,Heymans 2001,Fishbase
 RedHake,Bottom trawl survey,Food habits database,Lucey 2019,Fishbase
 RiverHerring,Bottom trawl survey,Food habits database,Dias et al. 2019,
 Scup,Bottom trawl survey,Food habits database,Lucey 2019,
-SeaBirds,Link et al. 2008,Link et al. 2008,Link et al. 2008,Buchheister et al 2017
-Sharks,Link et al. 2008,Link et al. 2008,Link et al. 2008,Buchheister et al 2017
+SeaBirds,Link et al. 2006,Link et al. 2006,Link et al. 2006,Buchheister et al 2017
+Sharks,Link et al. 2006,Link et al. 2006,Link et al. 2006,Buchheister et al 2017
 SilverHake,Bottom trawl survey,Food habits database,Lucey 2019,Fishbase
-SmCopepods,Link et al. 2008/EcoMon,Link et al. 2008,Link et al. 2008,
+SmCopepods,Link et al. 2006/EcoMon,Link et al. 2006,Link et al. 2006,
 SmFlatfishes,Bottom trawl survey,Food habits database,Lucey 2019,
 SmoothDogfish,Bottom trawl survey,Food habits database,Lucey 2019,
-SmPelagics,Bottom trawl survey,Link et al. 2008,Buchheister et al 2017,
+SmPelagics,Bottom trawl survey,Link et al. 2006,Buchheister et al 2017,
 SouthernDemersals,Bottom trawl survey,Food habits database,Buchheister et al 2017,
 SpinyDogfish,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
 SummerFlounder,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
-SurfClam,Clam survey,Link et al. 2008,Buchheister et al 2017,
+SurfClam,Clam survey,Link et al. 2006,Buchheister et al 2017,
 Weakfish,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
 WhiteHake,Bottom trawl survey,Food habits database,Lucey 2019,Fishbase
 Windowpane,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
