@@ -404,7 +404,7 @@ info_orig_MAB <- as.data.frame(info_orig_MAB)
 orig_info<-lapply(orig_networks, enaAscendency)
 ```
 
-#3 Analyze and compare ecosense outputs Load ecosense outputs - bounded and unbounded
+#3 Analyze and compare ecosense outputs Load ecosense outputs - initial and constrained
 
 ```{r}
 #load ecosense outputs
@@ -412,19 +412,19 @@ orig_info<-lapply(orig_networks, enaAscendency)
 #MAB
 #with thermodynamic bounding
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_Rpath_50k_2024.RData?raw=true"))
-#without thermodynamic bounding
+#without thermodynamic bounding (initial condition)
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_unbound.RData?raw=true"))
 
 #GB
 #with thermodynamic bounding
 load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_bound_bac.RData?raw=true"))
-#without thermodynamic bounding
+#without thermodynamic bounding (initial condition)
 load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_unbound_bac.RData?raw=true"))
 
 #GOM
 #with thermodynamic bounding
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_50k_resp_constrain.RData?raw=true"))
-#without thermodynamic bounding
+#without thermodynamic bounding (initial condition)
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_unbound.RData?raw=true"))
 ```
 
@@ -447,7 +447,7 @@ ndead   <- nrow(alt$model[Type == 2, ])
 ngear   <- nrow(alt$model[Type == 3, ])
 #find index of pp
 pp <- which(groups == "Phytoplankton")
-#bind bounded and unbounded outputs
+#bind constrained and initial outputs
 senses<-c(MAB_sense,MAB_sense_unbound)
 
 #calculate ena metrics for all ecosense outputs
@@ -553,7 +553,7 @@ rownames(MAB_flow)<-c()
 colnames(MAB_flow)<-c("group","flow")
 MAB_flow<- MAB_flow %>% mutate(EPU = "MAB") %>%
   mutate(flow=as.numeric(flow)) %>% 
-  mutate(condition = c(rep("bounded",length(MAB_sense)*(nliving+ndead)),rep("unbounded",length(MAB_sense_unbound)*(nliving+ndead))))
+  mutate(condition = c(rep("constrained",length(MAB_sense)*(nliving+ndead)),rep("initial",length(MAB_sense_unbound)*(nliving+ndead))))
 
 #run ascendancy analysis on each alternate model
 MAB_info<-lapply(alt_networks, enaAscendency)
@@ -577,7 +577,7 @@ ngear   <- nrow(alt$model[Type == 3, ])
 #find index of pp
 pp <- which(groups == "Phytoplankton")
 
-#bind bounded and unbounded outputs
+#bind constrained and initial outputs
 senses<-c(GB_sense_bound_bac,GB_sense_unbound_bac)
 #generate network models
 alt_networks<-as.list(rep(NA,length(senses)))
@@ -667,7 +667,7 @@ GB_flow <- as.data.frame(GB_flow)
 rownames(GB_flow)<-c()
 colnames(GB_flow)<-c("group","flow")
 GB_flow<- GB_flow %>% mutate(EPU = "GB") %>% mutate(flow=as.numeric(flow)) %>% 
-  mutate(condition = c(rep("bounded",length(GB_sense_bound_bac)*(nliving+ndead)),rep("unbounded",length(GB_sense_unbound_bac)*(nliving+ndead))))
+  mutate(condition = c(rep("constrained",length(GB_sense_bound_bac)*(nliving+ndead)),rep("initial",length(GB_sense_unbound_bac)*(nliving+ndead))))
 
 #run ascendancy analysis on each alternate model
 GB_info<-lapply(alt_networks, enaAscendency)
@@ -691,7 +691,7 @@ ngear   <- nrow(alt$model[Type == 3, ])
 #find index of pp
 pp <- which(groups == "Phytoplankton")
 
-#bind bounded and unbounded outputs
+#bind constrained and initial outputs
 senses<-c(GOM_sense,GOM_sense_unbound)
 #generate network models
 alt_networks<-as.list(rep(NA,length(senses)))
@@ -781,7 +781,7 @@ GOM_flow <- as.data.frame(GOM_flow)
 rownames(GOM_flow)<-c()
 colnames(GOM_flow)<-c("group","flow")
 GOM_flow<- GOM_flow %>% mutate(EPU = "GOM") %>% mutate(flow=as.numeric(flow)) %>% 
-  mutate(condition = c(rep("bounded",length(GOM_sense)*(nliving+ndead)),rep("unbounded",length(GOM_sense_unbound)*(nliving+ndead))))
+  mutate(condition = c(rep("constrained",length(GOM_sense)*(nliving+ndead)),rep("initial",length(GOM_sense_unbound)*(nliving+ndead))))
 
 #run ascendancy analysis on each alternate model
 GOM_info<-lapply(alt_networks, enaAscendency)
@@ -789,7 +789,7 @@ GOM_info<-lapply(alt_networks, enaAscendency)
 rm(alt_networks)
 ```
 
-##4.3 Comparing bounded/unbounded
+##4.3 Comparing initial/constrained
 
 ```{r}
 #turn all flows into one dataframe
@@ -821,8 +821,8 @@ for (j in 1:length(unique(flow$EPU))){
   EPU_flow<-flow %>% filter(EPU==EPU_test)
   EPU_groups<-groups %>% filter(EPU==EPU_test)
   for(i in 1:length(EPU_groups$group)){
-    bound<-EPU_flow %>% filter(group == EPU_groups$group[i],condition == "bounded")
-    unbound<-EPU_flow %>% filter(group == EPU_groups$group[i], condition == "unbounded")
+    bound<-EPU_flow %>% filter(group == EPU_groups$group[i],condition == "constrained")
+    unbound<-EPU_flow %>% filter(group == EPU_groups$group[i], condition == "initial")
     test<-ks.test(bound$flow,unbound$flow)
     ks_flow<-rbind(ks_flow,c(EPU_groups$group[i],test$p.value,EPU_test))
   }
@@ -832,14 +832,14 @@ ks_flow$p<-as.numeric(ks_flow$p)
 }
 
 
-#how does A/C compare between bounded and unbounded?
+#how does A/C compare between constrained and initial?
 #Pick out relative ascendancy metric
 #GOM
 ASC_CAP_GOM<-c()
 for (i in 1:length(GOM_info)){
   ASC_CAP_GOM[i]<-GOM_info[[i]][[7]]
 }
-ASC_CAP_GOM<-as.data.frame(cbind(ASC_CAP_GOM,c(rep("bounded",length(GOM_sense)),rep("unbounded",length(GOM_sense_unbound)))))
+ASC_CAP_GOM<-as.data.frame(cbind(ASC_CAP_GOM,c(rep("constrained",length(GOM_sense)),rep("initial",length(GOM_sense_unbound)))))
 ASC_CAP_GOM<- ASC_CAP_GOM %>% 
   mutate(ASC_CAP = as.numeric(ASC_CAP_GOM)) %>% 
   rename(condition = V2) %>% 
@@ -847,18 +847,25 @@ ASC_CAP_GOM<- ASC_CAP_GOM %>%
   mutate(EPU = "GOM")
 
 #ks testing, summary statistics
-bound<-ASC_CAP_GOM %>% filter(condition == "bounded") 
-unbound<-ASC_CAP_GOM %>% filter(condition == "unbounded") 
+bound<-ASC_CAP_GOM %>% filter(condition == "constrained") 
+unbound<-ASC_CAP_GOM %>% filter(condition == "initial") 
 ks.test(bound$ASC_CAP,unbound$ASC_CAP)
 bound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
 unbound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
+#test for normality
+ggqqplot(bound$ASC_CAP)
+ggqqplot(unbound$ASC_CAP)
+shapiro.test(bound$ASC_CAP)
+shapiro.test(unbound$ASC_CAP)
+#not normally distributed, so use non-parametric test instead
+wilcox_GOM<- ASC_CAP_GOM %>% wilcox_test(ASC_CAP ~ condition) %>% add_significance()
 
 #GB
 ASC_CAP_GB<-c()
 for (i in 1:length(GB_info)){
   ASC_CAP_GB[i]<-GB_info[[i]][[7]]
 }
-ASC_CAP_GB<-as.data.frame(cbind(ASC_CAP_GB,c(rep("bounded",length(GB_sense_bound_bac)),rep("unbounded",length(GB_sense_unbound_bac)))))
+ASC_CAP_GB<-as.data.frame(cbind(ASC_CAP_GB,c(rep("constrained",length(GB_sense)),rep("initial",length(GB_sense_unbound)))))
 ASC_CAP_GB<- ASC_CAP_GB %>% 
   mutate(ASC_CAP = as.numeric(ASC_CAP_GB)) %>% 
   rename(condition = V2) %>% 
@@ -866,18 +873,26 @@ ASC_CAP_GB<- ASC_CAP_GB %>%
   mutate(EPU = "GB")
 
 #summary statistics
-bound<-ASC_CAP_GB %>% filter(condition == "bounded") 
-unbound<-ASC_CAP_GB %>% filter(condition == "unbounded") 
+bound<-ASC_CAP_GB %>% filter(condition == "constrained") 
+unbound<-ASC_CAP_GB %>% filter(condition == "initial") 
 ks.test(bound$ASC_CAP,unbound$ASC_CAP)
 bound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
 unbound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
+#test for normality
+ggqqplot(bound$ASC_CAP)
+ggqqplot(unbound$ASC_CAP)
+shapiro.test(bound$ASC_CAP)
+shapiro.test(unbound$ASC_CAP)
+#distributions are not normal, cannot use t-test to compare between means
+#use non-parametric test instead
+wilcox_GB<- ASC_CAP_GB %>% wilcox_test(ASC_CAP ~ condition)
 
 #MAB
 ASC_CAP_MAB<-c()
 for (i in 1:length(MAB_info)){
   ASC_CAP_MAB[i]<-MAB_info[[i]][[7]]
 }
-ASC_CAP_MAB<-as.data.frame(cbind(ASC_CAP_MAB,c(rep("bounded",length(MAB_sense)),rep("unbounded",length(MAB_sense_unbound)))))
+ASC_CAP_MAB<-as.data.frame(cbind(ASC_CAP_MAB,c(rep("constrained",length(MAB_sense)),rep("initial",length(MAB_sense_unbound)))))
 ASC_CAP_MAB<- ASC_CAP_MAB %>% 
   mutate(ASC_CAP = as.numeric(ASC_CAP_MAB)) %>% 
   rename(condition = V2) %>% 
@@ -885,21 +900,27 @@ ASC_CAP_MAB<- ASC_CAP_MAB %>%
   mutate(EPU = "MAB")
 
 #test for differences, summary statistics
-bound<-ASC_CAP_MAB %>% filter(condition == "bounded")
-unbound<-ASC_CAP_MAB %>% filter(condition == "unbounded") 
+bound<-ASC_CAP_MAB %>% filter(condition == "constrained")
+unbound<-ASC_CAP_MAB %>% filter(condition == "initial") 
 ks.test(bound$ASC_CAP,unbound$ASC_CAP)
 bound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
 unbound  %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
+#test for normality
+ggqqplot(bound$ASC_CAP)
+ggqqplot(unbound$ASC_CAP)
+shapiro.test(bound$ASC_CAP)
+shapiro.test(unbound$ASC_CAP)
+#distributions are not normal, cannot use t-test to compare between means
+#use non-parametric test instead
+wilcox_MAB<- ASC_CAP_MAB %>% wilcox_test(ASC_CAP ~ condition)
 
 ASC_CAP<-rbind(ASC_CAP_GOM,ASC_CAP_GB,ASC_CAP_MAB)
 
 #ANOVA to test for differences between EPUs
-bound<-ASC_CAP %>% filter(condition == "bounded")
-model<-aov(data=bound,ASC_CAP~EPU)
-TukeyHSD(model)
-unbound<-ASC_CAP %>% filter(condition == "unbounded")
-model<-aov(data=unbound,ASC_CAP~EPU)
-TukeyHSD(model)
+bound<-ASC_CAP %>% filter(condition == "constrained")
+test_bound<-kruskal_test(data=bound,ASC_CAP~EPU)
+unbound<-ASC_CAP %>% filter(condition == "initial")
+test_unbound<-kruskal_test(data=unbound,ASC_CAP~EPU)
 ```
 
 #5 Figures 
@@ -935,10 +956,10 @@ bathy_sea <- bathydf; bathy_sea$V3[bathy_sea$V3 > 1] <- 0
 bathy_shelf<-bathy_sea %>% filter(V3 > -500) 
 
 #add EEZ line
-eez_boundaries <- sf::st_read("World_EEZ_v12_20231025", layer="eez_boundaries_v12")
+#eez_boundaries <- sf::st_read("World_EEZ_v12_20231025", layer="eez_boundaries_v12")
 #filter for canadian boundaries
 #try a different approach
-eez_canada<- eez_boundaries %>% filter(TERRITORY1 == "Canada" | TERRITORY2 == "Canada" | TERRITORY3 == "Canada")
+#eez_canada<- eez_boundaries %>% filter(TERRITORY1 == "Canada" | TERRITORY2 == "Canada" | TERRITORY3 == "Canada")
   
 
 #make table of summary stats for each model
@@ -1217,33 +1238,41 @@ my.pal1<-brewer.pal(8,"Set2")
 my.pal2<-brewer.pal(12,"Paired")
 
 Figure_3a<-ASC_CAP_GOM %>%
-ggplot(aes(x=ASC_CAP, fill=condition))+
+  mutate(condition = fct_relevel(condition,"initial","constrained")) %>%
+  ggplot(aes(x=ASC_CAP, fill=condition))+
   geom_density(alpha=0.4)+
   geom_vline(xintercept=info_orig_GOM$ASC.CAP,color=my.pal2[4],linetype="dashed",linewidth=1)+
   geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   scale_fill_manual(values = c(my.pal2[4],my.pal2[2]))+
   labs(x="A/DC",y="density",title = "GOM")+
   coord_cartesian(xlim = c(0.275,0.505), ylim = c(0,15),expand = F)+
+  geom_text(y=14,x=0.375,label="****")+
   theme_Publication()+
   theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.825))
 
-Figure_3b<-ggplot(data=ASC_CAP_GB,aes(x=ASC_CAP,fill=condition))+
+Figure_3b<-ASC_CAP_GB %>%
+  mutate(condition = fct_relevel(condition,"initial","constrained"))%>%
+  ggplot(aes(x=ASC_CAP,fill=condition))+
   geom_density(alpha=0.4)+
   geom_vline(xintercept=info_orig_GB$ASC.CAP,color=my.pal2[12],linetype="dashed",linewidth=1)+
   geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   scale_fill_manual(values = c(my.pal2[12],my.pal2[10]))+
   labs(x="A/DC",y="density",title="GB")+
   coord_cartesian(xlim = c(0.275,0.505), ylim = c(0,14),expand = F)+
+  geom_text(y=12.5,x=0.36,label="****")+
   theme_Publication()+
   theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.9))
 
-Figure_3c<-ggplot(data=ASC_CAP_MAB,aes(x=ASC_CAP,fill=condition))+
+Figure_3c<-ASC_CAP_MAB %>%
+  mutate(condition = fct_relevel(condition,"initial","constrained")) %>%
+  ggplot(aes(x=ASC_CAP,fill=condition))+
   geom_density(alpha=0.4)+
   geom_vline(xintercept=info_orig_MAB$ASC.CAP,color=my.pal2[8],linetype="dashed",linewidth=1)+
   geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   scale_fill_manual(values = c(my.pal2[8],my.pal2[6]))+
   labs(x="A/DC",y="density",title ="MAB")+
   coord_cartesian(xlim = c(0.275,0.505), ylim = c(0,15),expand = F)+
+  geom_text(y=14.5,x=0.39,label="****")+
   theme_Publication()+
   theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.825))
 Figure_3c
@@ -1252,11 +1281,11 @@ Figure_3<-Figure_3a/Figure_3b/Figure_3c
 Figure_3<-Figure_3+plot_annotation(tag_levels = "A")
 Figure_3
 ```
-##5.4 Figure 4: Flow metric comparisons (bounded to unbounded)
+##5.4 Figure 4: Flow metric comparisons (constrained to initial)
 ```{r}
-games_test <- ASC_CAP %>% filter(condition == "bounded") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
+games_test <- ASC_CAP %>% filter(condition == "constrained") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
 
-Figure_4b<-ASC_CAP %>% filter(condition == "bounded") %>%
+Figure_4b<-ASC_CAP %>% filter(condition == "constrained") %>%
   ggplot(aes(y=ASC_CAP,x=EPU,color=EPU))+
   geom_hline(yintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   geom_quasirandom(size = 1, width = .2, alpha = .25,)+
@@ -1267,9 +1296,9 @@ Figure_4b<-ASC_CAP %>% filter(condition == "bounded") %>%
   labs(y="A/DC",x="",title = "Constrained Condition")+
   theme(legend.position = "none",text = element_text(size=12))
 
-games_test <- ASC_CAP %>% filter(condition == "unbounded") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
+games_test <- ASC_CAP %>% filter(condition == "initial") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
 
-Figure_4a<-ASC_CAP %>% filter(condition == "unbounded") %>%
+Figure_4a<-ASC_CAP %>% filter(condition == "initial") %>%
   ggplot(aes(y=ASC_CAP,x=EPU,color=EPU))+
   geom_hline(yintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   geom_quasirandom(size = 1, width = .2, alpha = .25,)+
@@ -1277,41 +1306,47 @@ Figure_4a<-ASC_CAP %>% filter(condition == "unbounded") %>%
   scale_color_manual(values=c(my.pal2[10],my.pal2[2],my.pal2[6]))+
   theme_Publication()+
   stat_pvalue_manual(games_test,label = "p.adj.signif",y.position = 0.5,step.increase = 0.05)+
-  labs(y="A/DC",x="",title="Unconstrained Condition")+
+  labs(y="A/DC",x="",title="Initial Condition")+
   theme(legend.position = "none",text = element_text(size=12))
 
 Figure_4<-Figure_4a+Figure_4b
 Figure_4<-Figure_4+plot_annotation(tag_levels = "A")
 Figure_4
 ```
-##5.6 Figures 6 and 7: Flow metric comparisons (bounded to unbounded)
-
+##5.5 Figure 5: Group-level flow distributions
 ```{r}
-
-#define groups of interest
-flow<-left_join(flow,ks_flow,by=c("group","EPU"))
-my.pal3<-brewer.pal(11,"Spectral")
-
 flow %>%
   filter(EPU == "GOM")%>%
-  filter(condition == "unbounded") %>%
-  ggplot(aes(x=flow,fill = ))+
-  geom_density(alpha = 0.4)+
+  filter(condition == "initial") %>%
+  ggplot(aes(x=flow))+
+  geom_density(alpha = 0.4, fill= my.pal2[4])+
   #scale_fill_manual(values = c("green","red"))+
   #scale_fill_manual(values = c(my.pal2[8],my.pal2[10]))+
-  #facet_wrap(facets = ~fct_reorder(group,p),nrow = 3,scales = "free")
+  #facet_wrap(facets = ~fct_reorder(group,p),nrow = 3,scales = "free")+
+  theme_Publication()+
+  theme(legend.position = "none")+
   facet_wrap(vars(group),nrow=6,scales="free")
+```
+
+##5.6 Figures 6 and 7: Flow metric comparisons (constrained to initial)
+
+```{r}
+flow<-left_join(flow,ks_flow,by=c("group","EPU"))
+#make new column for unique EPU+condition variable
+flow <- flow %>% mutate(EPU_condition = paste(EPU,condition,sep = " ")) %>%
+    mutate(EPU_condition = fct_relevel(EPU_condition,"GOM initial","GOM constrained","GB initial","GB constrained","MAB initial","MAB constrained"))
 
 Figure_6a<-flow %>%
   filter(group == "Phytoplankton") %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.5,linewidth=0.5)+
   facet_wrap(~fct_relevel(EPU,"GOM","GB","MAB"),scales = "free")+
+  #scale_fill_manual(values = c(my.pal2[4],my.pal2[2],my.pal2[12],my.pal2[10],my.pal2[8],my.pal2[6]))+
   scale_fill_manual(values = c(my.pal2[11],my.pal2[1]))+
   ggtitle(label = "Phytoplankton")+
   theme_Publication()+
   theme(legend.position = "none")+
-  coord_cartesian(expand = F)+
+  #coord_cartesian(expand = F)+
   theme(text = element_text(size=12))
 
 Figure_6b<-flow %>%
@@ -1319,6 +1354,7 @@ Figure_6b<-flow %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.5,linewidth=0.5)+
   facet_wrap(~fct_relevel(EPU,"GOM","GB","MAB"),scales = "free")+
+  #scale_fill_manual(values = c(my.pal2[4],my.pal2[2],my.pal2[12],my.pal2[10],my.pal2[8],my.pal2[6]))+
   scale_fill_manual(values = c(my.pal2[11],my.pal2[1]))+
   ggtitle(label = "SmCopepods")+
   theme_Publication()+
@@ -1331,14 +1367,15 @@ Figure_6c<-flow %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.5,linewidth=0.5)+
   facet_wrap(~fct_relevel(EPU,"GOM","GB","MAB"),scales = "free")+
+  #scale_fill_manual(values = c(my.pal2[4],my.pal2[2],my.pal2[12],my.pal2[10],my.pal2[8],my.pal2[6]))+
   scale_fill_manual(values = c(my.pal2[11],my.pal2[1]))+
   ggtitle(label = "SmPelagics")+
   theme_Publication()+
   theme(legend.position = "none")+
   coord_cartesian(expand = F)+
-  theme(text = element_text(size=12))
+  theme(text = element_text(size=12),legend.position = "bottom")#,legend.key.spacing.x = unit(5, 'lines'))+
 
-Figure_6d<-flow %>%
+Figure_7a<-flow %>%
   filter(group == "LgCopepods") %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.5,linewidth=0.5)+
@@ -1350,7 +1387,7 @@ Figure_6d<-flow %>%
   coord_cartesian(expand = F)+
   theme(text = element_text(size=12))
 
-Figure_6e<-flow %>%
+Figure_7b<-flow %>%
   filter(group == "Macrobenthos") %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.5,linewidth=0.5)+
@@ -1362,7 +1399,7 @@ Figure_6e<-flow %>%
   coord_cartesian(expand = F)+
   theme(text = element_text(size=12))
 
-Figure_6f<-flow %>%
+Figure_7c<-flow %>%
   filter(group == "Megabenthos") %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.5,linewidth=0.5)+
@@ -1371,24 +1408,27 @@ Figure_6f<-flow %>%
   ggtitle(label = "Megabenthos")+
   theme_Publication()+
   theme(legend.position = "none")+
-  coord_cartesian(expand = F)+
-  theme(text = element_text(size=12))
+  coord_cartesian(ylim = c(0,NA))+
+  theme(text = element_text(size=12),legend.position = "bottom")
+  #,legend.text = element_text(margin = margin(r = 30, ,l=5,unit = "pt")))
 
-Figure_6g<-flow %>%
-  filter(group == "Detritus") %>%
-  ggplot(aes(x=flow,fill=condition))+
-  geom_density(alpha = 0.5,linewidth=0.5)+
-  facet_wrap(~fct_relevel(EPU,"GOM","GB","MAB"),scales = "free")+
-  scale_fill_manual(values = c(my.pal2[11],my.pal2[1]))+
-  ggtitle(label = "Detritus")+
-  theme_Publication()+
-  theme(legend.position = "bottom")+
-  coord_cartesian(expand = F)+
-  theme(text = element_text(size=12))
+  Figure_7c
+  
+# Figure_6g<-flow %>%
+#   filter(group == "Detritus") %>%
+#   ggplot(aes(x=flow,fill=condition))+
+#   geom_density(alpha = 0.5,linewidth=0.5)+
+#   facet_wrap(~fct_relevel(EPU,"GOM","GB","MAB"),scales = "free")+
+#   scale_fill_manual(values = c(my.pal2[11],my.pal2[1]))+
+#   ggtitle(label = "Detritus")+
+#   theme_Publication()+
+#   theme(legend.position = "bottom")+
+#   coord_cartesian(expand = F)+
+#   theme(text = element_text(size=12))
 
 
 Figure_6<-Figure_6a/Figure_6b/Figure_6c
-Figure_7<-Figure_6d/Figure_6e/Figure_6f/Figure_6g
+Figure_7<-Figure_7a/Figure_7b/Figure_7c
 Figure_6<-Figure_6+plot_annotation(tag_levels = "A")
 Figure_6
 Figure_7<-Figure_7+plot_annotation(tag_levels = "A")
