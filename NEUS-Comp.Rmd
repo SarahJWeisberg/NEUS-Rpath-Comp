@@ -29,6 +29,7 @@ library(viridis)
 library(patchwork)
 library(ggthemes)
 library(ggpubr)
+library(ggpp)
 
 #spatial tools
 remotes::install_github('NEFSC/NEFSC-Spatial')
@@ -99,6 +100,7 @@ GB.params.bal<-alternate.GB.params.bal
 #GOM
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_Rpath.RData?raw=true"))
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_params_Rpath.RData?raw=true"))
+
 
 #MAB
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_params_Rpath_no_disc.RData?raw=true"))
@@ -1092,8 +1094,9 @@ coo <- cbind(xnod,tl) #these inform x and y coordinates
 #manual adjustments and alignments
 coo["SouthernDemersals",1]<-2.5 
 coo["OceanQuahog",1]<-3.5
-coo["OtherShrimps",1]
-coo["Microzooplankton",1]<-6
+coo["OtherShrimps",1]<-(-4)
+coo["Windowpane",1]<-4.5
+scoo["Microzooplankton",1]<-6
 coo["Megabenthos",1]<-12
 coo["SmCopepods",1]<-10
 coo["Bacteria",1]<-bac
@@ -1339,11 +1342,10 @@ flow %>%
   filter(condition == "initial") %>%
   ggplot(aes(x=flow))+
   geom_density(alpha = 0.4, fill= my.pal2[6])+
-  #scale_fill_manual(values = c("green","red"))+
-  #scale_fill_manual(values = c(my.pal2[8],my.pal2[10]))+
-  #facet_wrap(facets = ~fct_reorder(group,p),nrow = 3,scales = "free")+
   theme_Publication()+
-  theme(legend.position = "none")+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
+  theme(legend.position = "none",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
   facet_wrap(vars(group),nrow=6,scales="free")
 ```
 
@@ -1353,8 +1355,9 @@ flow %>%
 flow<-left_join(flow,ks_flow,by=c("group","EPU"))
 #make new column for unique EPU+condition variable
 flow <- flow %>% mutate(EPU_condition = paste(EPU,condition,sep = " ")) %>%
-    mutate(EPU_condition = fct_relevel(EPU_condition,"GOM initial","GOM constrained","GB initial","GB constrained","MAB initial","MAB constrained"))
-
+    mutate(EPU_condition = fct_relevel(EPU_condition,"GOM initial","GOM constrained","GB initial","GB constrained","MAB initial","MAB constrained")) %>% add_significance("p")
+  
+  
 Figure_6a<-flow %>%
   filter(group == "Phytoplankton") %>%
   ggplot(aes(x=flow,fill=condition))+
@@ -1365,8 +1368,10 @@ Figure_6a<-flow %>%
   ggtitle(label = "Phytoplankton")+
   theme_Publication()+
   theme(legend.position = "none")+
-  #coord_cartesian(expand = F)+
-  theme(text = element_text(size=12))
+  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
+  theme(text = element_text(size=12),axis.text.y = element_blank(),axis.ticks.y=element_blank())
 
 Figure_6b<-flow %>%
   filter(group == "SmCopepods") %>%
@@ -1378,8 +1383,10 @@ Figure_6b<-flow %>%
   ggtitle(label = "SmCopepods")+
   theme_Publication()+
   theme(legend.position = "none")+
-  coord_cartesian(expand = F)+
-  theme(text = element_text(size=12))
+  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))+
+  theme(text = element_text(size=12),axis.text.y = element_blank(),axis.ticks.y=element_blank())
 
 Figure_6c<-flow %>%
   filter(group == "SmPelagics") %>%
@@ -1390,9 +1397,10 @@ Figure_6c<-flow %>%
   scale_fill_manual(values = c(my.pal2[11],my.pal2[1]))+
   ggtitle(label = "SmPelagics")+
   theme_Publication()+
-  theme(legend.position = "none")+
-  coord_cartesian(expand = F)+
-  theme(text = element_text(size=12),legend.position = "bottom")#,legend.key.spacing.x = unit(5, 'lines'))+
+  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))+
+  theme(text = element_text(size=12),legend.position = "bottom",axis.text.y = element_blank(),axis.ticks.y=element_blank())
 
 Figure_7a<-flow %>%
   filter(group == "LgCopepods") %>%
@@ -1403,8 +1411,10 @@ Figure_7a<-flow %>%
   ggtitle(label = "LgCopepods")+
   theme_Publication()+
   theme(legend.position = "none")+
-  coord_cartesian(expand = F)+
-  theme(text = element_text(size=12))
+  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
+  theme(text = element_text(size=12),axis.text.y = element_blank(),axis.ticks.y=element_blank())
 
 Figure_7b<-flow %>%
   filter(group == "Macrobenthos") %>%
@@ -1415,8 +1425,10 @@ Figure_7b<-flow %>%
   ggtitle(label = "Macrobenthos")+
   theme_Publication()+
   theme(legend.position = "none")+
-  coord_cartesian(expand = F)+
-  theme(text = element_text(size=12))
+  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
+  theme(text = element_text(size=12),axis.text.y = element_blank(),axis.ticks.y=element_blank())
 
 Figure_7c<-flow %>%
   filter(group == "Megabenthos") %>%
@@ -1426,13 +1438,11 @@ Figure_7c<-flow %>%
   scale_fill_manual(values = c(my.pal2[11],my.pal2[1]))+
   ggtitle(label = "Megabenthos")+
   theme_Publication()+
-  theme(legend.position = "none")+
-  coord_cartesian(ylim = c(0,NA))+
-  theme(text = element_text(size=12),legend.position = "bottom")
-  #,legend.text = element_text(margin = margin(r = 30, ,l=5,unit = "pt")))
+  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
+  theme(text = element_text(size=12),axis.text.y = element_blank(),axis.ticks.y=element_blank(),legend.position = "bottom")
 
-  Figure_7c
-  
 # Figure_6g<-flow %>%
 #   filter(group == "Detritus") %>%
 #   ggplot(aes(x=flow,fill=condition))+
@@ -1447,9 +1457,85 @@ Figure_7c<-flow %>%
 
 
 Figure_6<-Figure_6a/Figure_6b/Figure_6c
-Figure_7<-Figure_7a/Figure_7b/Figure_7c
 Figure_6<-Figure_6+plot_annotation(tag_levels = "A")
 Figure_6
+Figure_7<-Figure_7a/Figure_7b/Figure_7c
 Figure_7<-Figure_7+plot_annotation(tag_levels = "A")
 Figure_7
 ```
+#6 Supplemental Figures and Tables
+#6.3 Balanced model parameters for each model
+```{r}
+#GOM 
+GOM_print<-as.data.frame(matrix(ncol=9,nrow=(nliving_GOM+ndead_GOM)))
+colnames(GOM_print)<-c("Group","TL","B","PB","QB","BA","Catch","Unassim","EE")
+GOM_print$Group<-GOM$Group[1:(nliving_GOM+ndead_GOM)]
+GOM_print$TL<-GOM$TL[1:(nliving_GOM+ndead_GOM)]
+GOM_print$B<-GOM$Biomass[1:(nliving_GOM+ndead_GOM)]
+GOM_print$PB<-GOM$PB[1:(nliving_GOM+ndead_GOM)]
+GOM_print$QB<-GOM$QB[1:(nliving_GOM+ndead_GOM)]
+GOM_print$BA<-GOM$BA[1:(nliving_GOM+ndead_GOM)]
+GOM_print$Catch<-rowSums(GOM$Landings)[1:(nliving_GOM+ndead_GOM)]
+GOM_print$Unassim<-GOM$Unassim[1:(nliving_GOM+ndead_GOM)]
+GOM_print$EE<-GOM$EE[1:(nliving_GOM+ndead_GOM)]
+write.csv(GOM_print,"GOM_balanced.csv")
+
+#GOM diet
+GOM_diet<-as.data.frame(GOM.params$diet)
+GOM_diet[is.na(GOM_diet)]<-0
+GOM_diet[1:(nliving_GOM+ndead_GOM+1),2:(nliving_GOM+ndead_GOM)]<-GOM_diet[1:(nliving_GOM+ndead_GOM+1),2:(nliving_GOM+ndead_GOM)]*100
+write.csv(GOM_diet,"GOM_diet.csv")
+
+#GOM pedigree
+GOM_pedigree<-as.data.frame(GOM.params$pedigree)[,1:5]
+write.csv(GB_pedigree,"GOM_pedigree.csv")
+
+#GB model
+GB_print<-as.data.frame(matrix(ncol=9,nrow=(nliving_GB+ndead_GB)))
+colnames(GB_print)<-c("Group","TL","B","PB","QB","BA","Catch","Unassim","EE")
+GB_print$Group<-GB.bal$Group[1:(nliving_GB+ndead_GB)]
+GB_print$TL<-GB.bal$TL[1:(nliving_GB+ndead_GB)]
+GB_print$B<-GB.bal$Biomass[1:(nliving_GB+ndead_GB)]
+GB_print$PB<-GB.bal$PB[1:(nliving_GB+ndead_GB)]
+GB_print$QB<-GB.bal$QB[1:(nliving_GB+ndead_GB)]
+GB_print$BA<-GB.bal$BA[1:(nliving_GB+ndead_GB)]
+GB_print$Catch<-rowSums(GB.bal$Landings)[1:(nliving_GB+ndead_GB)]
+GB_print$Unassim<-GB.bal$Unassim[1:(nliving_GB+ndead_GB)]
+GB_print$EE<-GB.bal$EE[1:(nliving_GB+ndead_GB)]
+write.csv(GB_print,"GB_balanced.csv")
+
+#GB diet
+GB_diet<-as.data.frame(GB.params$diet)
+GB_diet[is.na(GB_diet)]<-0
+GB_diet[1:(nliving_GB+ndead_GB+1),2:(nliving_GB+ndead_GB)]<-GB_diet[1:(nliving_GB+ndead_GB+1),2:(nliving_GB+ndead_GB)]*100
+write.csv(GB_diet,"GB_diet.csv")
+
+#GB pedigree
+GB_pedigree<-as.data.frame(GB.params.bal$pedigree)[,1:5]
+write.csv(GB_pedigree,"GB_pedigree.csv")
+
+#MAB model
+MAB_print<-as.data.frame(matrix(ncol=9,nrow=(nliving_MAB+ndead_MAB)))
+colnames(MAB_print)<-c("Group","TL","B","PB","QB","BA","Catch","Unassim","EE")
+MAB_print$Group<-MAB.rpath$Group[1:(nliving_MAB+ndead_MAB)]
+MAB_print$TL<-MAB.rpath$TL[1:(nliving_MAB+ndead_MAB)]
+MAB_print$B<-MAB.rpath$Biomass[1:(nliving_MAB+ndead_MAB)]
+MAB_print$PB<-MAB.rpath$PB[1:(nliving_MAB+ndead_MAB)]
+MAB_print$QB<-MAB.rpath$QB[1:(nliving_MAB+ndead_MAB)]
+MAB_print$BA<-MAB.rpath$BA[1:(nliving_MAB+ndead_MAB)]
+MAB_print$Catch<-rowSums(MAB.rpath$Landings)[1:(nliving_MAB+ndead_MAB)]
+MAB_print$Unassim<-MAB.rpath$Unassim[1:(nliving_MAB+ndead_MAB)]
+MAB_print$EE<-MAB.rpath$EE[1:(nliving_MAB+ndead_MAB)]
+write.csv(MAB_print,"MAB_balanced.csv")
+
+#MAB diet
+MAB_diet<-as.data.frame(MAB.rpath.params$diet)
+MAB_diet[is.na(MAB_diet)]<-0
+MAB_diet[1:(nliving_MAB+ndead_MAB+1),2:(nliving_MAB+ndead_MAB)]<-MAB_diet[1:(nliving_MAB+ndead_MAB+1),2:(nliving_MAB+ndead_MAB)]*100
+write.csv(MAB_diet,"MAB_diet.csv")
+
+#MAB pedigree
+MAB_pedigree<-as.data.frame(MAB.rpath.params$pedigree)[,1:5]
+write.csv(MAB_pedigree,"MAB_pedigree.csv")
+
+
