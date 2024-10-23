@@ -111,10 +111,10 @@ load(url("https://github.com/Nyelab/MAB-Rpath/blob//max_clam_edits/outputs/MAB_R
 #1 Comparing the balanced models 
 ##1.1 Groups & Fleets
 ```{r}
-
 group<-c(GOM$Group,GB.bal$Group,MAB.rpath$Group)
+type <- c(GOM$type,GB.bal$type,MAB.rpath$type)
 model<-c(rep("GOM",GOM$NUM_GROUPS),rep("GB",GB.bal$NUM_GROUPS),rep("MAB",MAB.rpath$NUM_GROUPS))
-all_groups<-as.data.frame(cbind(group,model)) 
+all_groups<-as.data.frame(cbind(group,model,type)) 
 rownames(all_groups)<-c()
 
 groups_tally<-data.frame(unique(all_groups$group))
@@ -122,6 +122,46 @@ colnames(groups_tally)<-"group"
 groups_tally <- groups_tally %>% 
   mutate(GOM = ifelse(group %in% GOM$Group,"X",NA), GB = ifelse(group %in% GB.bal$Group,"X",NA),
          MAB = ifelse(group %in% MAB.rpath$Group,"X",NA))
+
+#fleets
+all_fleets <- all_groups %>% 
+  filter(type==3) %>% 
+  dplyr::select(-type)
+
+#rename GOM, MAB fleets to match GB
+#consider changing in model creation code
+all_fleets <- all_fleets %>%
+  mutate(group = ifelse(group == "Clam Dredge","ClamDredge",
+                        ifelse(group == "Fixed Gear","FixedGear",
+                               ifelse(group == "HMS Fleet","HMSFleet",
+                                      ifelse(group == "LG Mesh", "LargeMesh",
+                                             ifelse(group == "Other Dredge","OtherDredge",
+                                                    ifelse(group == "Scallop Dredge","ScallopDredge",
+                                                          ifelse(group == "SM Mesh","SmallMesh",group))))))))
+#tally
+fleets_tally<-data.frame(unique(all_fleets$group))
+colnames(fleets_tally)<-"group"
+fleets_tally<- fleets_tally %>% 
+  mutate(GOM = ifelse(group %in% all_fleets$group[which(all_fleets$model=="GOM")],"X","-"), 
+         GB = ifelse(group %in% all_fleets$group[which(all_fleets$model=="GB")],"X","-"),
+         MAB = ifelse(group %in% all_fleets$group[which(all_fleets$model=="MAB")],"X","-"))
+  
+#add fleet definition info
+fleets_tally <- fleets_tally %>% 
+  mutate(definition = ifelse(group == "ClamDredge","NEGEAR2 == 40",
+                             ifelse(group == "FixedGear","NEGEAR2 %in% c(1, 2, 8, 10, 50, 52, 14, 26)",
+                                    ifelse(group == "HMSFleet", "NEGEAR2 %in% c(3, 4, 6, 11)",
+                                           ifelse(group == "LargeMesh","NEGEAR2 %in% c(5, 16, 32, 35, 36)",
+                                                   ifelse(group == "OtherDredge","NEGEAR2 %in% c(22, 25, 38, 41)",
+                                                          ifelse(group == "ScallopDredge","NEGEAR2 == 13",
+                                                                 ifelse(group=="SmallMesh","NEGEAR2 == 5 & MESHCAT == 'SM'",
+                                                                        ifelse(group == "Pelagic", "NEGEAR2 %in% c(12, 17, 37)",
+                                                                               ifelse(group == "Trap","NEGEAR2 %in% c(18, 15, 19, 20, 21, 23, 30, 33, 53)",
+                                                                                      ifelse(group == "Other","Other NEGEAR2 codes",
+                                                                                             ifelse(group == "Recreational","MRIP data",
+                                                                                                    ifelse(group == "PurseSeine","Menhaden catch estimate",NA)))))))))))))
+
+write.csv(fleets_tally,"RPath_fleet_definitions.csv")
 
 #comparing groups 
 all_groups<-all_groups %>%
