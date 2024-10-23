@@ -96,6 +96,7 @@ rm(url)
 #rename
 GB.bal<-alternate.GB.bal
 GB.params.bal<-alternate.GB.params.bal
+rm(alternate.GB.bal,alternate.GB.params.bal)
 
 #GOM
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_Rpath.RData?raw=true"))
@@ -103,8 +104,8 @@ load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_para
 
 
 #MAB
-load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_params_Rpath_no_disc.RData?raw=true"))
-load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_Rpath_no_disc.RData?raw=true"))
+load(url("https://github.com/Nyelab/MAB-Rpath/blob//max_clam_edits/outputs/MAB_params_Rpath_no_disc.RData?raw=true"))
+load(url("https://github.com/Nyelab/MAB-Rpath/blob//max_clam_edits/outputs/MAB_Rpath_no_disc.RData?raw=true"))
 ```
 
 #1 Comparing the balanced models 
@@ -207,7 +208,8 @@ colnames(QQ)<-groups[1:nliving]
 rownames(QQ)<-groups[1:(nliving+ndead)]
 #Calculate flow to detritus
 M0<-MAB.rpath$PB*(1-MAB.rpath$EE)
-Detritus<-(M0*MAB.rpath$Biomass+MAB.rpath$QB*MAB.rpath$Biomass*MAB.rpath$Unassim)*MAB.rpath$DetFate[,1]
+Detritus<-(M0*MAB.rpath$Biomass+MAB.rpath$QB*MAB.rpath$Biomass*MAB.rpath$Unassim)*MAB.rpath$DetFate[,1] + 
+  rowSums(MAB.rpath$Discards)
 Detritus<-Detritus[1:(nliving+ndead)]
 #Flow to detritus from detritus = 0
 Detritus[(nliving+1)]<-0
@@ -413,15 +415,15 @@ orig_info<-lapply(orig_networks, enaAscendency)
 #need to adjust these file names to be more concise
 #MAB
 #with thermodynamic bounding
-load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_Rpath_50k_2024.RData?raw=true"))
+load(url("https://github.com/Nyelab/MAB-Rpath/blob/max_clam_edits/outputs/MAB_sense_Rpath_50k_2024.RData?raw=true"))
 #without thermodynamic bounding (initial condition)
-load(url("https://github.com/Nyelab/MAB-Rpath/blob/balance_prep/outputs/MAB_sense_unbound.RData?raw=true"))
+load(url("https://github.com/Nyelab/MAB-Rpath/blob/max_clam_edits/outputs/MAB_sense_unbound.RData?raw=true"))
 
 #GB
 #with thermodynamic bounding
-load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_bound_bac.RData?raw=true"))
+load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_bound.RData?raw=true"))
 #without thermodynamic bounding (initial condition)
-load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_unbound_bac.RData?raw=true"))
+load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_unbound.RData?raw=true"))
 
 #GOM
 #with thermodynamic bounding
@@ -1001,7 +1003,70 @@ NEUS <- ggplot() +
 
 NEUS
 ```
+## 5.1.1 Simplified map for talk
 
+```{r}
+bts<-NEFSCspatial::BTS_Strata
+
+MAB_strata <- c(1010:1080, 1100:1120, 1600:1750, 3010:3450, 3470, 3500, 3510)
+GB_strata  <- c(1090, 1130:1210, 1230, 1250, 3460, 3480, 3490, 3520:3550)
+GOM_strata <- c(1220, 1240, 1260:1290, 1360:1400, 3560:3830)
+
+bts_area<- bts %>% 
+  mutate(EPU = ifelse(STRATA %in% MAB_strata,"MAB",ifelse(STRATA %in% GB_strata,"GB",ifelse(STRATA %in% GOM_strata,"GOM","other"))))
+
+theme_set(theme_bw())
+
+#load in countries for plotting 
+world <- ne_countries(scale = "large", returnclass = "sf")
+
+#generate region outline polygons
+Region <- bts_area %>% filter(!EPU == "other") %>%
+  st_make_valid() %>% st_buffer(0) %>% group_by(EPU) %>% summarize()
+Region <- ms_filter_islands(Region, min_area=100000000000000) #get rid of that weird one in the gulf of maine 
+#Region <- ms_simplify(Region,keep = 0.003, weighting = 11)
+
+# call in bathymetric data
+# convert  bathymetric contours into dataframe
+bathy <- getNOAA.bathy(-80, -64.5, 34, 46, resolution=1); bathydf <- as.xyz(bathy) 
+#ignore positive depth (land)
+bathy_sea <- bathydf; bathy_sea$V3[bathy_sea$V3 > 1] <- 0
+#ignore depths greater than 500m
+#bathy_shelf<-bathy_sea %>% filter(V3 > -500) 
+
+usa <- st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
+#plot  
+NEUS <- ggplot() +
+  geom_sf()+
+  geom_raster(data = bathy_sea, aes(x = V1, y = V2, fill = V3)) +
+  scale_fill_gradient(low="#586575", high="#daedf7",
+                      breaks = c(-5000,-3000,-1000),labels=c("5k","3k","1k"))+
+  #geom_sf(data = world)+
+  geom_sf(data = usa)+
+ #geom_sf(data = Region, fill = NA, linewidth = .75)+
+  #scale_color_manual(values = c("#FF7F00","#377EB8","#E41A1C"))+
+  #geom_sf(data=eez_canada)+
+  coord_sf(xlim =c(-78, -65.5), ylim = c(35, 45)) + #zoomed to Hatteras and N
+  labs(x = NULL, y = NULL,fill= "Depth (m)") +
+  guides(color="none",fill=guide_colorbar(reverse = T))+
+  annotate("text",x=-74,y=39,label="Mid-Atlantic Bight",size=6,angle=50)+
+  annotate("text", x = -69, y = 43, label = "Gulf of Maine", size = 6)+
+  annotate("text", x = -68.75, y = 40.75, label = "Georges Bank", size = 6,angle=10)+
+  #annotation_custom(tableGrob(summary_stats),xmin=-69, xmax=-65.5, ymin=36.25, ymax=38)+
+  #ggspatial::annotation_scale(location = "br",bar_cols = c("grey60", "white")) +
+  theme(plot.margin = margin(0, 0, 0, 0, "cm"),
+        panel.grid.major = element_blank(),
+        #panel.border = element_blank(),
+        legend.position = "bottom",
+        #legend.position.inside = c(0.85,0.1),
+        legend.title = element_text(face="italic",size=18),
+        legend.direction = "horizontal",
+        legend.text = element_text(size=12, color="black"),
+        axis.text=element_text(size=12, color="black"))
+
+NEUS
+
+```
 ##5.2 Figure 2: Network diagrams
 
 ```{r}
@@ -1096,7 +1161,7 @@ coo["SouthernDemersals",1]<-2.5
 coo["OceanQuahog",1]<-3.5
 coo["OtherShrimps",1]<-(-4)
 coo["Windowpane",1]<-4.5
-scoo["Microzooplankton",1]<-6
+coo["Microzooplankton",1]<-6
 coo["Megabenthos",1]<-12
 coo["SmCopepods",1]<-10
 coo["Bacteria",1]<-bac
@@ -1315,7 +1380,7 @@ Figure_4b<-ASC_CAP %>% filter(condition == "constrained") %>%
   scale_color_manual(values=c(my.pal2[8],my.pal2[6],my.pal2[10]))+
   theme_Publication()+
   stat_pvalue_manual(games_test,label = "p.adj.signif",y.position = 0.5,step.increase = 0.05)+
-  labs(y="A/DC",x="",title = "Constrained Condition")+
+  labs(y="Relative Ascendency",x="",title = "Constrained Condition")+
   theme(legend.position = "none",text = element_text(size=12))
 
 games_test <- ASC_CAP %>% filter(condition == "initial") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
@@ -1328,7 +1393,7 @@ Figure_4a<-ASC_CAP %>% filter(condition == "initial") %>%
   scale_color_manual(values=c(my.pal2[7],my.pal2[5],my.pal2[9]))+
   theme_Publication()+
   stat_pvalue_manual(games_test,label = "p.adj.signif",y.position = 0.5,step.increase = 0.05)+
-  labs(y="A/DC",x="",title="Initial Condition")+
+  labs(y="Relative Ascendency",x="",title="Initial Condition")+
   theme(legend.position = "none",text = element_text(size=12))
 
 Figure_4<-Figure_4a+Figure_4b
@@ -1481,9 +1546,20 @@ GOM_print$EE<-GOM$EE[1:(nliving_GOM+ndead_GOM)]
 write.csv(GOM_print,"GOM_balanced.csv")
 
 #GOM diet
-GOM_diet<-as.data.frame(GOM.params$diet)
-GOM_diet[is.na(GOM_diet)]<-0
-GOM_diet[1:(nliving_GOM+ndead_GOM+1),2:(nliving_GOM+ndead_GOM)]<-GOM_diet[1:(nliving_GOM+ndead_GOM+1),2:(nliving_GOM+ndead_GOM)]*100
+GOM_DC<-GOM$DC
+GOM_prey<-c(groups_GOM[1:(nliving_GOM+ndead_GOM)],"Import")
+GOM_diet<-c()
+for (i in 1:(nliving_GOM)){
+  group<-groups_GOM[i]
+  diet<-cbind(rep(group,(nliving_GOM+ndead_GOM+1)),GOM_prey, GOM_DC[,i])
+  GOM_diet<-rbind(GOM_diet,diet)
+}
+GOM_diet<-as.data.frame(GOM_diet)
+colnames(GOM_diet) <- c("pred","prey","prop")
+GOM_diet<-GOM_diet %>% filter(!prop==0)
+GOM_diet <- GOM_diet %>% mutate(prop = as.numeric(prop)) %>%
+  mutate(prop = prop*100)
+
 write.csv(GOM_diet,"GOM_diet.csv")
 
 #GOM pedigree
@@ -1505,9 +1581,20 @@ GB_print$EE<-GB.bal$EE[1:(nliving_GB+ndead_GB)]
 write.csv(GB_print,"GB_balanced.csv")
 
 #GB diet
-GB_diet<-as.data.frame(GB.params$diet)
-GB_diet[is.na(GB_diet)]<-0
-GB_diet[1:(nliving_GB+ndead_GB+1),2:(nliving_GB+ndead_GB)]<-GB_diet[1:(nliving_GB+ndead_GB+1),2:(nliving_GB+ndead_GB)]*100
+GB_DC<-GB.bal$DC
+GB_prey<-c(groups_GB[1:(nliving_GB+ndead_GB)],"Import")
+GB_diet<-c()
+for (i in 1:(nliving_GB)){
+  group<-groups_GB[i]
+  diet<-cbind(rep(group,(nliving_GB+ndead_GB+1)),GB_prey, GB_DC[,i])
+  GB_diet<-rbind(GB_diet,diet)
+}
+GB_diet<-as.data.frame(GB_diet)
+colnames(GB_diet) <- c("pred","prey","prop")
+GB_diet<-GB_diet %>% filter(!prop==0)
+GB_diet <- GB_diet %>% mutate(prop = as.numeric(prop)) %>%
+  mutate(prop = prop*100)
+
 write.csv(GB_diet,"GB_diet.csv")
 
 #GB pedigree
@@ -1529,13 +1616,71 @@ MAB_print$EE<-MAB.rpath$EE[1:(nliving_MAB+ndead_MAB)]
 write.csv(MAB_print,"MAB_balanced.csv")
 
 #MAB diet
-MAB_diet<-as.data.frame(MAB.rpath.params$diet)
-MAB_diet[is.na(MAB_diet)]<-0
-MAB_diet[1:(nliving_MAB+ndead_MAB+1),2:(nliving_MAB+ndead_MAB)]<-MAB_diet[1:(nliving_MAB+ndead_MAB+1),2:(nliving_MAB+ndead_MAB)]*100
+MAB_DC<-MAB.rpath$DC
+MAB_prey<-c(groups_MAB[1:(nliving_MAB+ndead_MAB)],"Import")
+MAB_diet<-c()
+for (i in 1:(nliving_MAB)){
+  group<-groups_MAB[i]
+  diet<-cbind(rep(group,(nliving_MAB+ndead_MAB+1)),MAB_prey, MAB_DC[,i])
+  MAB_diet<-rbind(MAB_diet,diet)
+}
+MAB_diet<-as.data.frame(MAB_diet)
+colnames(MAB_diet) <- c("pred","prey","prop")
+MAB_diet<-MAB_diet %>% filter(!prop==0)
+MAB_diet <- MAB_diet %>% mutate(prop = as.numeric(prop)) %>%
+  mutate(prop = prop*100)
+
 write.csv(MAB_diet,"MAB_diet.csv")
 
 #MAB pedigree
 MAB_pedigree<-as.data.frame(MAB.rpath.params$pedigree)[,1:5]
 write.csv(MAB_pedigree,"MAB_pedigree.csv")
+```
+#6.3 Supplemental figures: flow distributions for all models, all groups
+```{r}
+flow<-flow %>% mutate(p.signif = ifelse(p.signif=="ns","",p.signif))
+Figure_S1<- flow %>%
+  filter(EPU == "GOM") %>%
+  ggplot(aes(x=flow,fill=condition))+
+  geom_density(alpha = 0.4)+
+  scale_fill_manual(values = c(my.pal2[9],my.pal2[10]))+
+  theme_Publication()+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
+  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
+  labs(title = "GOM")+
+  theme(legend.position = "bottom",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
+  facet_wrap(vars(group),nrow=6,scales="free")
+Figure_S1
+
+Figure_S2<- flow %>%
+  filter(EPU == "GB") %>%
+  ggplot(aes(x=flow,fill=condition))+
+  geom_density(alpha = 0.4)+
+  scale_fill_manual(values = c(my.pal2[7],my.pal2[8]))+
+  theme_Publication()+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
+  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
+  labs(title = "GB")+
+  theme(legend.position = "bottom",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
+  facet_wrap(vars(group),nrow=6,scales="free")
+Figure_S2
+
+Figure_S3<- flow %>%
+  filter(EPU == "MAB") %>%
+  ggplot(aes(x=flow,fill=condition))+
+  geom_density(alpha = 0.4)+
+  scale_fill_manual(values = c(my.pal2[5],my.pal2[6]))+
+  theme_Publication()+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
+  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
+  labs(title = "MAB")+
+  theme(legend.position = "bottom",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
+  facet_wrap(vars(group),nrow=6,scales="free")
+Figure_S3
+
+```
 
 

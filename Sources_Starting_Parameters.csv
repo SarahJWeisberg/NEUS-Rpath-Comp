@@ -1,4 +1,4 @@
-RPATH,Biomass,Diet,PB/QB,Additional PB/QB
+Group,Biomass,Diet,PB/QB,Additional PB/QB
 AmLobster,Bottom trawl survey,Link et al. 2006,Buchheister et al 2017,Zhang & Chen 2007
 AmPlaice,Bottom trawl survey,Food habits database,Heymans 2001,Fishbase
 AtlCroaker,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishbase
@@ -67,10 +67,3 @@ YTFlounder,Bottom trawl survey,Food habits database,Buchheister et al 2017,Fishb
 ,,,,
 Notes,,,,
 Fishbase- PB/QB estimates informed by longevity estimates from Fishbase; we assumed negative correlation between PB and longevity,,,,
-,,,,
-,,,,
-,,,,
-,,,,
-,,,,
-,,,,
-,,,,
