@@ -128,16 +128,16 @@ all_fleets <- all_groups %>%
   filter(type==3) %>% 
   dplyr::select(-type)
 
-#rename GOM, MAB fleets to match GB
-#consider changing in model creation code
+#rename GB fleets to match GOM, MAB
+#will make changes in model creation code
 all_fleets <- all_fleets %>%
-  mutate(group = ifelse(group == "Clam Dredge","ClamDredge",
-                        ifelse(group == "Fixed Gear","FixedGear",
-                               ifelse(group == "HMS Fleet","HMSFleet",
-                                      ifelse(group == "LG Mesh", "LargeMesh",
-                                             ifelse(group == "Other Dredge","OtherDredge",
-                                                    ifelse(group == "Scallop Dredge","ScallopDredge",
-                                                          ifelse(group == "SM Mesh","SmallMesh",group))))))))
+  mutate(group = ifelse(group == "ClamDredge","Clam Dredge",
+                        ifelse(group == "FixedGear","Fixed Gear",
+                               ifelse(group == "HMSFleet","HMS Fleet",
+                                      ifelse(group == "LargeMesh", "LG Mesh",
+                                             ifelse(group == "OtherDredge","Other Dredge",
+                                                    ifelse(group == "ScallopDredge","Scallop Dredge",
+                                                          ifelse(group == "SmallMesh","SM Mesh",group))))))))
 #tally
 fleets_tally<-data.frame(unique(all_fleets$group))
 colnames(fleets_tally)<-"group"
@@ -148,20 +148,20 @@ fleets_tally<- fleets_tally %>%
   
 #add fleet definition info
 fleets_tally <- fleets_tally %>% 
-  mutate(definition = ifelse(group == "ClamDredge","NEGEAR2 == 40",
-                             ifelse(group == "FixedGear","NEGEAR2 %in% c(1, 2, 8, 10, 50, 52, 14, 26)",
-                                    ifelse(group == "HMSFleet", "NEGEAR2 %in% c(3, 4, 6, 11)",
-                                           ifelse(group == "LargeMesh","NEGEAR2 %in% c(5, 16, 32, 35, 36)",
-                                                   ifelse(group == "OtherDredge","NEGEAR2 %in% c(22, 25, 38, 41)",
-                                                          ifelse(group == "ScallopDredge","NEGEAR2 == 13",
-                                                                 ifelse(group=="SmallMesh","NEGEAR2 == 5 & MESHCAT == 'SM'",
+  mutate(definition = ifelse(group == "Clam Dredge","NEGEAR2 == 40",
+                             ifelse(group == "Fixed Gear","NEGEAR2 %in% c(1, 2, 8, 10, 50, 52, 14, 26)",
+                                    ifelse(group == "HMS Fleet", "NEGEAR2 %in% c(3, 4, 6, 11)",
+                                           ifelse(group == "LG Mesh","NEGEAR2 %in% c(5, 16, 32, 35, 36)",
+                                                   ifelse(group == "Other Dredge","NEGEAR2 %in% c(22, 25, 38, 41)",
+                                                          ifelse(group == "Scallop Dredge","NEGEAR2 == 13",
+                                                                 ifelse(group=="SM Mesh","NEGEAR2 == 5 & MESHCAT == 'SM'",
                                                                         ifelse(group == "Pelagic", "NEGEAR2 %in% c(12, 17, 37)",
                                                                                ifelse(group == "Trap","NEGEAR2 %in% c(18, 15, 19, 20, 21, 23, 30, 33, 53)",
                                                                                       ifelse(group == "Other","Other NEGEAR2 codes",
                                                                                              ifelse(group == "Recreational","MRIP data",
                                                                                                     ifelse(group == "PurseSeine","Menhaden catch estimate",NA)))))))))))))
 
-write.csv(fleets_tally,"RPath_fleet_definitions.csv")
+#write.csv(fleets_tally,"RPath_fleet_definitions.csv")
 
 #comparing groups 
 all_groups<-all_groups %>%
