@@ -132,8 +132,12 @@ NAs_discards <- NAs_discards |> mutate(Group = coalesce(Group.x, Group.y)) |>
   select(-Group.x, -Group.y)
 
 ## Birds added to SeaBirds ---------------------------------------------------
-birds <- NAs_discards |> filter(NESPP3 %in% c(610,615,620,621,
-                                              633,640,643,652))|>
+birds <- NAs_discards |> filter(NESPP3 %in% c(610,611,613,
+                                              615,616,617,
+                                              618,620,621,
+                                              631,632,633,
+                                              635,638,639,
+                                              640,643,652,657))|>
                 mutate(Group = "SeaBirds")
 # Join birds to NAs_discards
 NAs_discards <- left_join(NAs_discards, 
@@ -271,6 +275,18 @@ stomach <- NAs_discards |> filter(NESPP3 == 685) |>
 # Join stomach to NAs_discards
 NAs_discards <- left_join(NAs_discards, 
                           stomach, by = c("NESPP3",'COMNAME', 'SCINAME'))
+# Combine values from columns Group.x and Group.y into Group,
+# remove Group.x and Group.y
+NAs_discards <- NAs_discards |> mutate(Group = coalesce(Group.x, Group.y)) |> 
+  select(-Group.x, -Group.y)
+
+## Sculpin/Grenadier/Hake added to OtherDemersals -----------------------------
+# Justification: Seemed most likely in fisheries data
+otherdem <- NAs_discards |> filter(NESPP3 == 667) |>
+  mutate(Group = "Macrobenthos")
+# Join stomach to NAs_discards
+NAs_discards <- left_join(NAs_discards, 
+                          otherdem, by = c("NESPP3",'COMNAME', 'SCINAME'))
 # Combine values from columns Group.x and Group.y into Group,
 # remove Group.x and Group.y
 NAs_discards <- NAs_discards |> mutate(Group = coalesce(Group.x, Group.y)) |> 
