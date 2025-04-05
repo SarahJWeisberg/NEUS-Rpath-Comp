@@ -448,27 +448,26 @@ info_orig_MAB <- as.data.frame(info_orig_MAB)
 orig_info<-lapply(orig_networks, enaAscendency)
 ```
 
-#3 Analyze and compare ecosense outputs Load ecosense outputs - initial and constrained
+#3 Analyze and compare ecosense outputs Load ecosense outputs - nonselective and plausible
 
 ```{r}
 #load ecosense outputs
-#need to adjust these file names to be more concise
 #MAB
 #with thermodynamic bounding
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/max_clam_edits/outputs/MAB_sense_Rpath_50k_2024.RData?raw=true"))
-#without thermodynamic bounding (initial condition)
+#without thermodynamic bounding (nonselective condition)
 load(url("https://github.com/Nyelab/MAB-Rpath/blob/max_clam_edits/outputs/MAB_sense_unbound.RData?raw=true"))
 
 #GB
 #with thermodynamic bounding
 load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_bound.RData?raw=true"))
-#without thermodynamic bounding (initial condition)
+#without thermodynamic bounding (nonselective condition)
 load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_unbound.RData?raw=true"))
 
 #GOM
 #with thermodynamic bounding
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_50k_resp_constrain.RData?raw=true"))
-#without thermodynamic bounding (initial condition)
+#without thermodynamic bounding (nonselective condition)
 load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_unbound.RData?raw=true"))
 ```
 
@@ -491,7 +490,7 @@ ndead   <- nrow(alt$model[Type == 2, ])
 ngear   <- nrow(alt$model[Type == 3, ])
 #find index of pp
 pp <- which(groups == "Phytoplankton")
-#bind constrained and initial outputs
+#bind plausible and nonselective outputs
 senses<-c(MAB_sense,MAB_sense_unbound)
 
 #calculate ena metrics for all ecosense outputs
@@ -597,7 +596,7 @@ rownames(MAB_flow)<-c()
 colnames(MAB_flow)<-c("group","flow")
 MAB_flow<- MAB_flow %>% mutate(EPU = "MAB") %>%
   mutate(flow=as.numeric(flow)) %>% 
-  mutate(condition = c(rep("constrained",length(MAB_sense)*(nliving+ndead)),rep("initial",length(MAB_sense_unbound)*(nliving+ndead))))
+  mutate(condition = c(rep("plausible",length(MAB_sense)*(nliving+ndead)),rep("nonselective",length(MAB_sense_unbound)*(nliving+ndead))))
 
 #run ascendancy analysis on each alternate model
 MAB_info<-lapply(alt_networks, enaAscendency)
@@ -621,7 +620,7 @@ ngear   <- nrow(alt$model[Type == 3, ])
 #find index of pp
 pp <- which(groups == "Phytoplankton")
 
-#bind constrained and initial outputs
+#bind plausible and nonselective outputs
 senses<-c(GB_sense_bound_bac,GB_sense_unbound_bac)
 #generate network models
 alt_networks<-as.list(rep(NA,length(senses)))
@@ -711,7 +710,7 @@ GB_flow <- as.data.frame(GB_flow)
 rownames(GB_flow)<-c()
 colnames(GB_flow)<-c("group","flow")
 GB_flow<- GB_flow %>% mutate(EPU = "GB") %>% mutate(flow=as.numeric(flow)) %>% 
-  mutate(condition = c(rep("constrained",length(GB_sense_bound_bac)*(nliving+ndead)),rep("initial",length(GB_sense_unbound_bac)*(nliving+ndead))))
+  mutate(condition = c(rep("plausible",length(GB_sense_bound_bac)*(nliving+ndead)),rep("nonselective",length(GB_sense_unbound_bac)*(nliving+ndead))))
 
 #run ascendancy analysis on each alternate model
 GB_info<-lapply(alt_networks, enaAscendency)
@@ -735,7 +734,7 @@ ngear   <- nrow(alt$model[Type == 3, ])
 #find index of pp
 pp <- which(groups == "Phytoplankton")
 
-#bind constrained and initial outputs
+#bind plausible and nonselective outputs
 senses<-c(GOM_sense,GOM_sense_unbound)
 #generate network models
 alt_networks<-as.list(rep(NA,length(senses)))
@@ -825,7 +824,7 @@ GOM_flow <- as.data.frame(GOM_flow)
 rownames(GOM_flow)<-c()
 colnames(GOM_flow)<-c("group","flow")
 GOM_flow<- GOM_flow %>% mutate(EPU = "GOM") %>% mutate(flow=as.numeric(flow)) %>% 
-  mutate(condition = c(rep("constrained",length(GOM_sense)*(nliving+ndead)),rep("initial",length(GOM_sense_unbound)*(nliving+ndead))))
+  mutate(condition = c(rep("plausible",length(GOM_sense)*(nliving+ndead)),rep("nonselective",length(GOM_sense_unbound)*(nliving+ndead))))
 
 #run ascendancy analysis on each alternate model
 GOM_info<-lapply(alt_networks, enaAscendency)
@@ -833,7 +832,7 @@ GOM_info<-lapply(alt_networks, enaAscendency)
 rm(alt_networks)
 ```
 
-##4.3 Comparing initial/constrained
+##4.3 Comparing nonselective/plausible
 
 ```{r}
 #turn all flows into one dataframe
@@ -865,8 +864,8 @@ for (j in 1:length(unique(flow$EPU))){
   EPU_flow<-flow %>% filter(EPU==EPU_test)
   EPU_groups<-groups %>% filter(EPU==EPU_test)
   for(i in 1:length(EPU_groups$group)){
-    bound<-EPU_flow %>% filter(group == EPU_groups$group[i],condition == "constrained")
-    unbound<-EPU_flow %>% filter(group == EPU_groups$group[i], condition == "initial")
+    bound<-EPU_flow %>% filter(group == EPU_groups$group[i],condition == "plausible")
+    unbound<-EPU_flow %>% filter(group == EPU_groups$group[i], condition == "nonselective")
     test<-ks.test(bound$flow,unbound$flow)
     ks_flow<-rbind(ks_flow,c(EPU_groups$group[i],test$p.value,EPU_test))
   }
@@ -876,14 +875,14 @@ ks_flow$p<-as.numeric(ks_flow$p)
 }
 
 
-#how does A/C compare between constrained and initial?
+#how does A/C compare between plausible and nonselective?
 #Pick out relative ascendancy metric
 #GOM
 ASC_CAP_GOM<-c()
 for (i in 1:length(GOM_info)){
   ASC_CAP_GOM[i]<-GOM_info[[i]][[7]]
 }
-ASC_CAP_GOM<-as.data.frame(cbind(ASC_CAP_GOM,c(rep("constrained",length(GOM_sense)),rep("initial",length(GOM_sense_unbound)))))
+ASC_CAP_GOM<-as.data.frame(cbind(ASC_CAP_GOM,c(rep("plausible",length(GOM_sense)),rep("nonselective",length(GOM_sense_unbound)))))
 ASC_CAP_GOM<- ASC_CAP_GOM %>% 
   mutate(ASC_CAP = as.numeric(ASC_CAP_GOM)) %>% 
   rename(condition = V2) %>% 
@@ -891,8 +890,8 @@ ASC_CAP_GOM<- ASC_CAP_GOM %>%
   mutate(EPU = "GOM")
 
 #ks testing, summary statistics
-bound<-ASC_CAP_GOM %>% filter(condition == "constrained") 
-unbound<-ASC_CAP_GOM %>% filter(condition == "initial") 
+bound<-ASC_CAP_GOM %>% filter(condition == "plausible") 
+unbound<-ASC_CAP_GOM %>% filter(condition == "nonselective") 
 ks.test(bound$ASC_CAP,unbound$ASC_CAP)
 bound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
 unbound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
@@ -909,7 +908,7 @@ ASC_CAP_GB<-c()
 for (i in 1:length(GB_info)){
   ASC_CAP_GB[i]<-GB_info[[i]][[7]]
 }
-ASC_CAP_GB<-as.data.frame(cbind(ASC_CAP_GB,c(rep("constrained",length(GB_sense)),rep("initial",length(GB_sense_unbound)))))
+ASC_CAP_GB<-as.data.frame(cbind(ASC_CAP_GB,c(rep("plausible",length(GB_sense)),rep("nonselective",length(GB_sense_unbound)))))
 ASC_CAP_GB<- ASC_CAP_GB %>% 
   mutate(ASC_CAP = as.numeric(ASC_CAP_GB)) %>% 
   rename(condition = V2) %>% 
@@ -917,8 +916,8 @@ ASC_CAP_GB<- ASC_CAP_GB %>%
   mutate(EPU = "GB")
 
 #summary statistics
-bound<-ASC_CAP_GB %>% filter(condition == "constrained") 
-unbound<-ASC_CAP_GB %>% filter(condition == "initial") 
+bound<-ASC_CAP_GB %>% filter(condition == "plausible") 
+unbound<-ASC_CAP_GB %>% filter(condition == "nonselective") 
 ks.test(bound$ASC_CAP,unbound$ASC_CAP)
 bound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
 unbound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
@@ -936,7 +935,7 @@ ASC_CAP_MAB<-c()
 for (i in 1:length(MAB_info)){
   ASC_CAP_MAB[i]<-MAB_info[[i]][[7]]
 }
-ASC_CAP_MAB<-as.data.frame(cbind(ASC_CAP_MAB,c(rep("constrained",length(MAB_sense)),rep("initial",length(MAB_sense_unbound)))))
+ASC_CAP_MAB<-as.data.frame(cbind(ASC_CAP_MAB,c(rep("plausible",length(MAB_sense)),rep("nonselective",length(MAB_sense_unbound)))))
 ASC_CAP_MAB<- ASC_CAP_MAB %>% 
   mutate(ASC_CAP = as.numeric(ASC_CAP_MAB)) %>% 
   rename(condition = V2) %>% 
@@ -944,8 +943,8 @@ ASC_CAP_MAB<- ASC_CAP_MAB %>%
   mutate(EPU = "MAB")
 
 #test for differences, summary statistics
-bound<-ASC_CAP_MAB %>% filter(condition == "constrained")
-unbound<-ASC_CAP_MAB %>% filter(condition == "initial") 
+bound<-ASC_CAP_MAB %>% filter(condition == "plausible")
+unbound<-ASC_CAP_MAB %>% filter(condition == "nonselective") 
 ks.test(bound$ASC_CAP,unbound$ASC_CAP)
 bound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
 unbound  %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
@@ -961,9 +960,9 @@ wilcox_MAB<- ASC_CAP_MAB %>% wilcox_test(ASC_CAP ~ condition)
 ASC_CAP<-rbind(ASC_CAP_GOM,ASC_CAP_GB,ASC_CAP_MAB)
 
 #ANOVA to test for differences between EPUs
-bound<-ASC_CAP %>% filter(condition == "constrained")
+bound<-ASC_CAP %>% filter(condition == "plausible")
 test_bound<-kruskal_test(data=bound,ASC_CAP~EPU)
-unbound<-ASC_CAP %>% filter(condition == "initial")
+unbound<-ASC_CAP %>% filter(condition == "nonselective")
 test_unbound<-kruskal_test(data=unbound,ASC_CAP~EPU)
 ```
 
@@ -1365,7 +1364,7 @@ my.pal1<-brewer.pal(8,"Set2")
 my.pal2<-brewer.pal(12,"Paired")
 
 Figure_3a<-ASC_CAP_GOM %>%
-  mutate(condition = fct_relevel(condition,"initial","constrained")) %>%
+  mutate(condition = fct_relevel(condition,"nonselective","plausible")) %>%
   ggplot(aes(x=ASC_CAP, fill=condition))+
   geom_density(alpha=0.4)+
   geom_vline(xintercept=info_orig_GOM$ASC.CAP,color=my.pal2[10],linetype="dashed",linewidth=1)+
@@ -1378,7 +1377,7 @@ Figure_3a<-ASC_CAP_GOM %>%
   theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.825))
 
 Figure_3b<-ASC_CAP_GB %>%
-  mutate(condition = fct_relevel(condition,"initial","constrained"))%>%
+  mutate(condition = fct_relevel(condition,"nonselective","plausible"))%>%
   ggplot(aes(x=ASC_CAP,fill=condition))+
   geom_density(alpha=0.5)+
   geom_vline(xintercept=info_orig_GB$ASC.CAP,color=my.pal2[8],linetype="dashed",linewidth=1)+
@@ -1391,10 +1390,10 @@ Figure_3b<-ASC_CAP_GB %>%
   theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.9))
 
 Figure_3c<-ASC_CAP_MAB %>%
-  mutate(condition = fct_relevel(condition,"initial","constrained")) %>%
+  mutate(condition = fct_relevel(condition,"nonselective","plausible")) %>%
   ggplot(aes(x=ASC_CAP,fill=condition))+
   geom_density(alpha=0.5)+
-  geom_vline(xintercept=info_orig_MAB$ASC.CAP,color=my.pal2[6],linetype="dashed",linewidth=1)+
+  #geom_vline(xintercept=info_orig_MAB$ASC.CAP,color=my.pal2[6],linetype="dashed",linewidth=1)+
   geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   scale_fill_manual(values = c(my.pal2[5],my.pal2[6]))+
   labs(x="A/DC",y="density",title ="MAB")+
@@ -1408,11 +1407,11 @@ Figure_3<-Figure_3a/Figure_3b/Figure_3c
 Figure_3<-Figure_3+plot_annotation(tag_levels = "A")
 Figure_3
 ```
-##5.4 Figure 4: Flow metric comparisons (constrained to initial)
+##5.4 Figure 4: Flow metric comparisons (plausible to nonselective)
 ```{r}
-games_test <- ASC_CAP %>% filter(condition == "constrained") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
+games_test <- ASC_CAP %>% filter(condition == "plausible") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
 
-Figure_4b<-ASC_CAP %>% filter(condition == "constrained") %>%
+Figure_4b<-ASC_CAP %>% filter(condition == "plausible") %>%
   ggplot(aes(y=ASC_CAP,x=EPU,color=EPU))+
   geom_hline(yintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   geom_quasirandom(size = 1, width = .2, alpha = .25)+
@@ -1420,12 +1419,12 @@ Figure_4b<-ASC_CAP %>% filter(condition == "constrained") %>%
   scale_color_manual(values=c(my.pal2[8],my.pal2[6],my.pal2[10]))+
   theme_Publication()+
   stat_pvalue_manual(games_test,label = "p.adj.signif",y.position = 0.5,step.increase = 0.05)+
-  labs(y="Relative Ascendency",x="",title = "Constrained Condition")+
+  labs(y="Relative Ascendency",x="",title = "plausible Condition")+
   theme(legend.position = "none",text = element_text(size=12))
 
-games_test <- ASC_CAP %>% filter(condition == "initial") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
+games_test <- ASC_CAP %>% filter(condition == "nonselective") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
 
-Figure_4a<-ASC_CAP %>% filter(condition == "initial") %>%
+Figure_4a<-ASC_CAP %>% filter(condition == "nonselective") %>%
   ggplot(aes(y=ASC_CAP,x=EPU,color=EPU))+
   geom_hline(yintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   geom_quasirandom(size = 1, width = .2, alpha = .25)+
@@ -1433,7 +1432,7 @@ Figure_4a<-ASC_CAP %>% filter(condition == "initial") %>%
   scale_color_manual(values=c(my.pal2[7],my.pal2[5],my.pal2[9]))+
   theme_Publication()+
   stat_pvalue_manual(games_test,label = "p.adj.signif",y.position = 0.5,step.increase = 0.05)+
-  labs(y="Relative Ascendency",x="",title="Initial Condition")+
+  labs(y="Relative Ascendency",x="",title="nonselective Condition")+
   theme(legend.position = "none",text = element_text(size=12))
 
 Figure_4<-Figure_4a+Figure_4b
@@ -1444,7 +1443,7 @@ Figure_4
 ```{r}
 flow %>%
   filter(EPU == "GOM")%>%
-  filter(condition == "initial") %>%
+  filter(condition == "nonselective") %>%
   ggplot(aes(x=flow))+
   geom_density(alpha = 0.4, fill= my.pal2[6])+
   theme_Publication()+
@@ -1454,13 +1453,13 @@ flow %>%
   facet_wrap(vars(group),nrow=6,scales="free")
 ```
 
-##5.6 Figures 6 and 7: Flow metric comparisons (constrained to initial)
+##5.6 Figures 6 and 7: Flow metric comparisons (plausible to nonselective)
 
 ```{r}
 flow<-left_join(flow,ks_flow,by=c("group","EPU"))
 #make new column for unique EPU+condition variable
 flow <- flow %>% mutate(EPU_condition = paste(EPU,condition,sep = " ")) %>%
-    mutate(EPU_condition = fct_relevel(EPU_condition,"GOM initial","GOM constrained","GB initial","GB constrained","MAB initial","MAB constrained")) %>% add_significance("p")
+    mutate(EPU_condition = fct_relevel(EPU_condition,"GOM nonselective","GOM plausible","GB nonselective","GB plausible","MAB nonselective","MAB plausible")) %>% add_significance("p")
   
   
 Figure_6a<-flow %>%
