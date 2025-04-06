@@ -1,7 +1,7 @@
 ---
 title: "Comparisons across NEUS Rpath models"
 author: "Sarah J. Weisberg"
-date: "2024-03-25"
+date: "2025-04-06"
 output: 
   html_document
 ---
@@ -85,142 +85,26 @@ Load in the balanced models from Github
 
 ```{r}
 #GB
-url<-"https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/alternate.GB.params.bal.rda?raw=true"
-download.file(url,destfile = "GB.params.Rdata")
-load("GB.params.Rdata")
-
-url<-"https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/alternate.GB.bal.rda?raw=true"
-download.file(url,destfile = "GB.bal.Rdata")
-load("GB.bal.Rdata")
-rm(url)
+load(here("Rpath_models/alternate.GB.bal.rda"))
+load(here("Rpath_models/alternate.GB.params.bal.rda"))
 #rename
 GB.bal<-alternate.GB.bal
 GB.params.bal<-alternate.GB.params.bal
 rm(alternate.GB.bal,alternate.GB.params.bal)
 
 #GOM
-load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_Rpath.RData?raw=true"))
-load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_params_Rpath.RData?raw=true"))
+load(here("Rpath_models/GOM_Rpath.RData"))
+load(here("Rpath_models/GOM_params_Rpath.RData"))
 
 #MAB
-load(url("https://github.com/Nyelab/MAB-Rpath/blob//max_clam_edits/outputs/MAB_params_Rpath_no_disc.RData?raw=true"))
-load(url("https://github.com/Nyelab/MAB-Rpath/blob//max_clam_edits/outputs/MAB_Rpath_no_disc.RData?raw=true"))
-```
-
-#1 Comparing the balanced models 
-##1.1 Groups & Fleets
-```{r}
-group<-c(GOM$Group,GB.bal$Group,MAB.rpath$Group)
-type <- c(GOM$type,GB.bal$type,MAB.rpath$type)
-model<-c(rep("GOM",GOM$NUM_GROUPS),rep("GB",GB.bal$NUM_GROUPS),rep("MAB",MAB.rpath$NUM_GROUPS))
-all_groups<-as.data.frame(cbind(group,model,type)) 
-rownames(all_groups)<-c()
-
-groups_tally<-data.frame(unique(all_groups$group))
-colnames(groups_tally)<-"group"
-groups_tally <- groups_tally %>% 
-  mutate(GOM = ifelse(group %in% GOM$Group,"X",NA), GB = ifelse(group %in% GB.bal$Group,"X",NA),
-         MAB = ifelse(group %in% MAB.rpath$Group,"X",NA))
-
-#fleets
-all_fleets <- all_groups %>% 
-  filter(type==3) %>% 
-  dplyr::select(-type)
-
-#rename GB fleets to match GOM, MAB
-#will make changes in model creation code
-all_fleets <- all_fleets %>%
-  mutate(group = ifelse(group == "ClamDredge","Clam Dredge",
-                        ifelse(group == "FixedGear","Fixed Gear",
-                               ifelse(group == "HMSFleet","HMS Fleet",
-                                      ifelse(group == "LargeMesh", "LG Mesh",
-                                             ifelse(group == "OtherDredge","Other Dredge",
-                                                    ifelse(group == "ScallopDredge","Scallop Dredge",
-                                                          ifelse(group == "SmallMesh","SM Mesh",group))))))))
-#tally
-fleets_tally<-data.frame(unique(all_fleets$group))
-colnames(fleets_tally)<-"group"
-fleets_tally<- fleets_tally %>% 
-  mutate(GOM = ifelse(group %in% all_fleets$group[which(all_fleets$model=="GOM")],"X","-"), 
-         GB = ifelse(group %in% all_fleets$group[which(all_fleets$model=="GB")],"X","-"),
-         MAB = ifelse(group %in% all_fleets$group[which(all_fleets$model=="MAB")],"X","-"))
-  
-#add fleet definition info
-fleets_tally <- fleets_tally %>% 
-  mutate(definition = ifelse(group == "Clam Dredge","NEGEAR2 == 40",
-                             ifelse(group == "Fixed Gear","NEGEAR2 %in% c(1, 2, 8, 10, 50, 52, 14, 26)",
-                                    ifelse(group == "HMS Fleet", "NEGEAR2 %in% c(3, 4, 6, 11)",
-                                           ifelse(group == "LG Mesh","NEGEAR2 %in% c(5, 16, 32, 35, 36)",
-                                                   ifelse(group == "Other Dredge","NEGEAR2 %in% c(22, 25, 38, 41)",
-                                                          ifelse(group == "Scallop Dredge","NEGEAR2 == 13",
-                                                                 ifelse(group=="SM Mesh","NEGEAR2 == 5 & MESHCAT == 'SM'",
-                                                                        ifelse(group == "Pelagic", "NEGEAR2 %in% c(12, 17, 37)",
-                                                                               ifelse(group == "Trap","NEGEAR2 %in% c(18, 15, 19, 20, 21, 23, 30, 33, 53)",
-                                                                                      ifelse(group == "Other","Other NEGEAR2 codes",
-                                                                                             ifelse(group == "Recreational","MRIP data",
-                                                                                                    ifelse(group == "PurseSeine","Menhaden catch estimate",NA)))))))))))))
-
-#write.csv(fleets_tally,"RPath_fleet_definitions.csv")
-
-#comparing groups 
-all_groups<-all_groups %>%
-  mutate(PB = c(GOM$PB,GB.bal$PB,MAB.rpath$PB), 
-         QB = c(GOM$QB,GB.bal$QB,MAB.rpath$QB),
-         Biomass = c(GOM$Biomass,GB.bal$Biomass,MAB.rpath$Biomass),
-         EE = c(GOM$EE,GB.bal$EE,MAB.rpath$EE),
-         TL = c(GOM$TL,GB.bal$TL,MAB.rpath$TL)) %>% 
-  filter(!PB == 0) %>% #get rid of fleets
-  mutate(PB = round(PB,2), QB = round(QB,2),Biomass=round(Biomass,2),EE=round(EE,2)) 
-
-ggplot(all_groups,aes(x=model,y=PB,color=model)) +
-  geom_bar(stat="identity")+
-  geom_text(aes(label=PB),vjust=1.6,size=3)+
-  facet_wrap(~group,scales = "free")+
-  theme(legend.position = "none")
-
-all_groups %>% filter(!group %in% c("Phytoplankton","Detritus","Discards"))%>%  
-ggplot(aes(x=model,y=QB,color=model)) +
-  geom_bar(stat="identity")+
-  geom_text(aes(label=QB),vjust=1.6,size=3)+
-  facet_wrap(~group,scales = "free")+
-  theme(legend.position = "none")
-
-all_groups %>%
-  filter(!group %in% c("Discards"))%>% 
-  ggplot(aes(x=model,y=Biomass,color=model)) +
-  geom_bar(stat="identity")+
-  geom_text(aes(label=Biomass),vjust=1.6,size=3)+
-  facet_wrap(~group,scales = "free")+
-  theme(legend.position = "none")
-```
-##1.2 Cumulative biomass vs. TL, cumulative production
-```{r}
-all_groups <- all_groups %>% 
-  filter(!group %in% c("Detritus","Discards")) %>%
-  group_by(model) %>% 
-  arrange(TL,.by_group=T) %>% 
-  mutate(cum_B = cumsum(Biomass))
-  
-
-ggplot(data=all_groups,aes(x=TL,y=cum_B,color=model))+
-  geom_line()+
-  labs(y="Cumulative Biomass")
-  
-all_groups <- all_groups %>%
-  arrange(cum_B,.by_group = T) %>%
-  mutate(prod = PB*Biomass) %>%
-  mutate(cum_P = cumsum(prod))
-
-ggplot(data=all_groups,aes(x=cum_B,y=cum_P,color=model))+
-  geom_line()+
-  labs(x="Cumulative Biomass",y="Cumulative Production")
-
+load(here("Rpath_models/MAB_Rpath_no_disc.RData"))
+load(here("Rpath_models/MAB_params_Rpath_no_disc.RData"))
 ```
 
 
-#2 Ecological Network Analysis (ENA)
+#1 Ecological Network Analysis (ENA)
 
-##2.1 Convert starting models to networks
+##1.1 Convert starting models to networks
 
 ```{r}
 #MAB
@@ -430,7 +314,7 @@ orig_network_GOM<-enaR::pack(flow = QQ,
                          storage = Biomass)
 ```
 
-##2.2 ENA on starting models
+##1.2 ENA on starting models
 
 ```{r}
 library(enaR)
@@ -447,31 +331,31 @@ info_orig_MAB <- as.data.frame(info_orig_MAB)
 orig_info<-lapply(orig_networks, enaAscendency)
 ```
 
-#3 Analyze and compare ecosense outputs Load ecosense outputs - nonselective and plausible
+#2 Analyze and compare ecosense outputs Load ecosense outputs - nonselective and plausible
 
 ```{r}
 #load ecosense outputs
 #MAB
 #with thermodynamic bounding
-load(url("https://github.com/Nyelab/MAB-Rpath/blob/max_clam_edits/outputs/MAB_sense_Rpath_50k_2024.RData?raw=true"))
+load(here("Ecosense_outputs/MAB_sense_Rpath_50k_2024.Rdata"))
 #without thermodynamic bounding (nonselective condition)
-load(url("https://github.com/Nyelab/MAB-Rpath/blob/max_clam_edits/outputs/MAB_sense_unbound.RData?raw=true"))
+load(here("Ecosense_outputs/MAB_sense_unbound.Rdata"))
 
 #GB
 #with thermodynamic bounding
-load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_bound.RData?raw=true"))
+load(here("Ecosense_outputs/GB_sense_bound.RData"))
 #without thermodynamic bounding (nonselective condition)
-load(url("https://github.com/NOAA-EDAB/GBRpath/blob/max_clam_edits/data/GB_sense_unbound.RData?raw=true"))
+load(here("Ecosense_outputs/GB_sense_unbound.RData"))
 
 #GOM
 #with thermodynamic bounding
-load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_50k_resp_constrain.RData?raw=true"))
+load(here("Ecosense_outputs/GOM_sense_50k_resp_constrain.RData"))
 #without thermodynamic bounding (nonselective condition)
-load(url("https://github.com/SarahJWeisberg/GOM-Rpath/blob/main/outputs/GOM_sense_unbound.RData?raw=true"))
+load(here("Ecosense_outputs/GOM_sense_unbound.RData"))
 ```
 
-#4 ENA on Ecosense outputs 
-##4.1 Network conversion of MAB ecosense outputs
+#3 ENA on Ecosense outputs 
+##3.1 Network conversion of MAB ecosense outputs
 
 ```{r}
 library(enaR)
@@ -532,12 +416,6 @@ for (i in 1:length(senses)) {
   Unassim<-MAB.alt$UnassimRespFrac[2:(nliving+ndead+1)]
   DetFate<-MAB.alt$DetFrac[2:(nliving+ndead+1)]
   Detritus<-(M0*Biomass+QB*Biomass*Unassim)*DetFate
-  #Detritus<-(model$QB*model$Biomass*model$Unassim)*model$DetFate[,1]
-  #Detritus<-Detritus[1:(nliving+ndead)]
-  #Deal with flow to detritus from discards
-  #Should be equal to all flow to discards minus consumption by SeaBirds(45)
-  #DetInDisc<-sum(Discards)
-  #Detritus[58]<-DetInDisc-QQ[58,45]
   #Flow to detritus from detritus = 0
   Detritus[(nliving+ndead)]<-0
   #Bind diet matrix (QQ) with flow to detritus, discards
@@ -569,7 +447,6 @@ for (i in 1:length(senses)) {
   #Negative biomass accumulation terms
   #Gross primary production
   Import<-abs(ifelse(BA<0,BA*Biomass,0))
-  #EE_Biomass<-ifelse(model$EE>1,(model$EE-1)*model$Biomass,0)
   #Import<-BA_Biomass+EE_Biomass
   Import[pp]<-gross
   Import<-Import[1:(nliving+ndead)]
@@ -620,7 +497,7 @@ ngear   <- nrow(alt$model[Type == 3, ])
 pp <- which(groups == "Phytoplankton")
 
 #bind plausible and nonselective outputs
-senses<-c(GB_sense_bound_bac,GB_sense_unbound_bac)
+senses<-c(GB_sense,GB_sense_unbound)
 #generate network models
 alt_networks<-as.list(rep(NA,length(senses)))
 
@@ -709,7 +586,7 @@ GB_flow <- as.data.frame(GB_flow)
 rownames(GB_flow)<-c()
 colnames(GB_flow)<-c("group","flow")
 GB_flow<- GB_flow %>% mutate(EPU = "GB") %>% mutate(flow=as.numeric(flow)) %>% 
-  mutate(condition = c(rep("plausible",length(GB_sense_bound_bac)*(nliving+ndead)),rep("nonselective",length(GB_sense_unbound_bac)*(nliving+ndead))))
+  mutate(condition = c(rep("plausible",length(GB_sense)*(nliving+ndead)),rep("nonselective",length(GB_sense_unbound)*(nliving+ndead))))
 
 #run ascendancy analysis on each alternate model
 GB_info<-lapply(alt_networks, enaAscendency)
@@ -919,7 +796,6 @@ bound<-ASC_CAP_GB %>% filter(condition == "plausible")
 unbound<-ASC_CAP_GB %>% filter(condition == "nonselective") 
 ks.test(bound$ASC_CAP,unbound$ASC_CAP)
 bound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
-unbound %>% summarise(mean = mean(ASC_CAP), sd = sd(ASC_CAP))
 #test for normality
 ggqqplot(bound$ASC_CAP)
 ggqqplot(unbound$ASC_CAP)
@@ -965,7 +841,7 @@ unbound<-ASC_CAP %>% filter(condition == "nonselective")
 test_unbound<-kruskal_test(data=unbound,ASC_CAP~EPU)
 ```
 
-#5 Figures 
+#4 Figures 
 ## 5.1 Figure 1: Map
 
 ```{r}
@@ -996,12 +872,6 @@ bathy <- getNOAA.bathy(-80, -64.5, 34, 46, resolution=1); bathydf <- as.xyz(bath
 bathy_sea <- bathydf; bathy_sea$V3[bathy_sea$V3 > 1] <- 0
 #ignore depths greater than 500m
 bathy_shelf<-bathy_sea %>% filter(V3 > -500) 
-
-#add EEZ line
-#eez_boundaries <- sf::st_read("World_EEZ_v12_20231025", layer="eez_boundaries_v12")
-#filter for canadian boundaries
-#try a different approach
-#eez_canada<- eez_boundaries %>% filter(TERRITORY1 == "Canada" | TERRITORY2 == "Canada" | TERRITORY3 == "Canada")
   
 
 #make table of summary stats for each model
@@ -1041,71 +911,71 @@ NEUS <- ggplot() +
 
 NEUS
 ```
-## 5.1.1 Simplified map for talk
+## 4.1.1 Simplified map for talk
 
 ```{r}
-bts<-NEFSCspatial::BTS_Strata
-
-MAB_strata <- c(1010:1080, 1100:1120, 1600:1750, 3010:3450, 3470, 3500, 3510)
-GB_strata  <- c(1090, 1130:1210, 1230, 1250, 3460, 3480, 3490, 3520:3550)
-GOM_strata <- c(1220, 1240, 1260:1290, 1360:1400, 3560:3830)
-
-bts_area<- bts %>% 
-  mutate(EPU = ifelse(STRATA %in% MAB_strata,"MAB",ifelse(STRATA %in% GB_strata,"GB",ifelse(STRATA %in% GOM_strata,"GOM","other"))))
-
-theme_set(theme_bw())
-
-#load in countries for plotting 
-world <- ne_countries(scale = "large", returnclass = "sf")
-
-#generate region outline polygons
-Region <- bts_area %>% filter(!EPU == "other") %>%
-  st_make_valid() %>% st_buffer(0) %>% group_by(EPU) %>% summarize()
-Region <- ms_filter_islands(Region, min_area=100000000000000) #get rid of that weird one in the gulf of maine 
-#Region <- ms_simplify(Region,keep = 0.003, weighting = 11)
-
-# call in bathymetric data
-# convert  bathymetric contours into dataframe
-bathy <- getNOAA.bathy(-80, -64.5, 34, 46, resolution=1); bathydf <- as.xyz(bathy) 
-#ignore positive depth (land)
-bathy_sea <- bathydf; bathy_sea$V3[bathy_sea$V3 > 1] <- 0
-#ignore depths greater than 500m
-#bathy_shelf<-bathy_sea %>% filter(V3 > -500) 
-
-usa <- st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
-#plot  
-NEUS <- ggplot() +
-  geom_sf()+
-  geom_raster(data = bathy_sea, aes(x = V1, y = V2, fill = V3)) +
-  scale_fill_gradient(low="#586575", high="#daedf7",
-                      breaks = c(-5000,-3000,-1000),labels=c("5k","3k","1k"))+
-  #geom_sf(data = world)+
-  geom_sf(data = usa)+
- #geom_sf(data = Region, fill = NA, linewidth = .75)+
-  #scale_color_manual(values = c("#FF7F00","#377EB8","#E41A1C"))+
-  #geom_sf(data=eez_canada)+
-  coord_sf(xlim =c(-78, -65.5), ylim = c(35, 45)) + #zoomed to Hatteras and N
-  labs(x = NULL, y = NULL,fill= "Depth (m)") +
-  guides(color="none",fill=guide_colorbar(reverse = T))+
-  annotate("text",x=-74,y=39,label="Mid-Atlantic Bight",size=6,angle=50)+
-  annotate("text", x = -69, y = 43, label = "Gulf of Maine", size = 6)+
-  annotate("text", x = -68.75, y = 40.75, label = "Georges Bank", size = 6,angle=10)+
-  #annotation_custom(tableGrob(summary_stats),xmin=-69, xmax=-65.5, ymin=36.25, ymax=38)+
-  #ggspatial::annotation_scale(location = "br",bar_cols = c("grey60", "white")) +
-  theme(plot.margin = margin(0, 0, 0, 0, "cm"),
-        panel.grid.major = element_blank(),
-        #panel.border = element_blank(),
-        legend.position = "bottom",
-        #legend.position.inside = c(0.85,0.1),
-        legend.title = element_text(face="italic",size=18),
-        legend.direction = "horizontal",
-        legend.text = element_text(size=12, color="black"),
-        axis.text=element_text(size=12, color="black"))
-
-NEUS
+# bts<-NEFSCspatial::BTS_Strata
+# 
+# MAB_strata <- c(1010:1080, 1100:1120, 1600:1750, 3010:3450, 3470, 3500, 3510)
+# GB_strata  <- c(1090, 1130:1210, 1230, 1250, 3460, 3480, 3490, 3520:3550)
+# GOM_strata <- c(1220, 1240, 1260:1290, 1360:1400, 3560:3830)
+# 
+# bts_area<- bts %>% 
+#   mutate(EPU = ifelse(STRATA %in% MAB_strata,"MAB",ifelse(STRATA %in% GB_strata,"GB",ifelse(STRATA %in% GOM_strata,"GOM","other"))))
+# 
+# theme_set(theme_bw())
+# 
+# #load in countries for plotting 
+# world <- ne_countries(scale = "large", returnclass = "sf")
+# 
+# #generate region outline polygons
+# Region <- bts_area %>% filter(!EPU == "other") %>%
+#   st_make_valid() %>% st_buffer(0) %>% group_by(EPU) %>% summarize()
+# Region <- ms_filter_islands(Region, min_area=100000000000000) #get rid of that weird one in the gulf of maine 
+# #Region <- ms_simplify(Region,keep = 0.003, weighting = 11)
+# 
+# # call in bathymetric data
+# # convert  bathymetric contours into dataframe
+# bathy <- getNOAA.bathy(-80, -64.5, 34, 46, resolution=1); bathydf <- as.xyz(bathy) 
+# #ignore positive depth (land)
+# bathy_sea <- bathydf; bathy_sea$V3[bathy_sea$V3 > 1] <- 0
+# #ignore depths greater than 500m
+# #bathy_shelf<-bathy_sea %>% filter(V3 > -500) 
+# 
+# usa <- st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
+# #plot  
+# NEUS <- ggplot() +
+#   geom_sf()+
+#   geom_raster(data = bathy_sea, aes(x = V1, y = V2, fill = V3)) +
+#   scale_fill_gradient(low="#586575", high="#daedf7",
+#                       breaks = c(-5000,-3000,-1000),labels=c("5k","3k","1k"))+
+#   #geom_sf(data = world)+
+#   geom_sf(data = usa)+
+#  #geom_sf(data = Region, fill = NA, linewidth = .75)+
+#   #scale_color_manual(values = c("#FF7F00","#377EB8","#E41A1C"))+
+#   #geom_sf(data=eez_canada)+
+#   coord_sf(xlim =c(-78, -65.5), ylim = c(35, 45)) + #zoomed to Hatteras and N
+#   labs(x = NULL, y = NULL,fill= "Depth (m)") +
+#   guides(color="none",fill=guide_colorbar(reverse = T))+
+#   annotate("text",x=-74,y=39,label="Mid-Atlantic Bight",size=6,angle=50)+
+#   annotate("text", x = -69, y = 43, label = "Gulf of Maine", size = 6)+
+#   annotate("text", x = -68.75, y = 40.75, label = "Georges Bank", size = 6,angle=10)+
+#   #annotation_custom(tableGrob(summary_stats),xmin=-69, xmax=-65.5, ymin=36.25, ymax=38)+
+#   #ggspatial::annotation_scale(location = "br",bar_cols = c("grey60", "white")) +
+#   theme(plot.margin = margin(0, 0, 0, 0, "cm"),
+#         panel.grid.major = element_blank(),
+#         #panel.border = element_blank(),
+#         legend.position = "bottom",
+#         #legend.position.inside = c(0.85,0.1),
+#         legend.title = element_text(face="italic",size=18),
+#         legend.direction = "horizontal",
+#         legend.text = element_text(size=12, color="black"),
+#         axis.text=element_text(size=12, color="black"))
+# 
+# NEUS
 
 ```
-##5.2 Figure 2: Network diagrams
+##4.2 Figure 2: Network diagrams
 
 ```{r}
 library(enaR)
@@ -1355,7 +1225,7 @@ Figure_2
 
 
 
-##5.3 Figure 3: A/C plots
+##4.3 Figure 4: A/C plots
 
 ```{r}
 #set color palette
@@ -1374,6 +1244,7 @@ Figure_3a<-ASC_CAP_GOM %>%
   geom_text(y=14,x=0.375,label="****")+
   theme_Publication()+
   theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.825))
+Figure_3a
 
 Figure_3b<-ASC_CAP_GB %>%
   mutate(condition = fct_relevel(condition,"nonselective","plausible"))%>%
@@ -1392,7 +1263,7 @@ Figure_3c<-ASC_CAP_MAB %>%
   mutate(condition = fct_relevel(condition,"nonselective","plausible")) %>%
   ggplot(aes(x=ASC_CAP,fill=condition))+
   geom_density(alpha=0.5)+
-  #geom_vline(xintercept=info_orig_MAB$ASC.CAP,color=my.pal2[6],linetype="dashed",linewidth=1)+
+  geom_vline(xintercept=info_orig_MAB$ASC.CAP,color=my.pal2[6],linetype="dashed",linewidth=1)+
   geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
   scale_fill_manual(values = c(my.pal2[5],my.pal2[6]))+
   labs(x="A/DC",y="density",title ="MAB")+
@@ -1405,8 +1276,9 @@ Figure_3c
 Figure_3<-Figure_3a/Figure_3b/Figure_3c
 Figure_3<-Figure_3+plot_annotation(tag_levels = "A")
 Figure_3
+ggsave(filename = "Fig4.jpg",Figure_3,width=13.65,height = 10.8,dpi = 300)
 ```
-##5.4 Figure 4: Flow metric comparisons (plausible to nonselective)
+##4.4 Figure 4: Flow metric comparisons (plausible to nonselective)
 ```{r}
 games_test <- ASC_CAP %>% filter(condition == "plausible") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
 
@@ -1418,7 +1290,7 @@ Figure_4b<-ASC_CAP %>% filter(condition == "plausible") %>%
   scale_color_manual(values=c(my.pal2[8],my.pal2[6],my.pal2[10]))+
   theme_Publication()+
   stat_pvalue_manual(games_test,label = "p.adj.signif",y.position = 0.5,step.increase = 0.05)+
-  labs(y="Relative Ascendency",x="",title = "plausible Condition")+
+  labs(y="Relative Ascendency",x="",title = "Plausible Condition")+
   theme(legend.position = "none",text = element_text(size=12))
 
 games_test <- ASC_CAP %>% filter(condition == "nonselective") %>% games_howell_test(ASC_CAP ~ EPU, detailed = T)
@@ -1431,16 +1303,17 @@ Figure_4a<-ASC_CAP %>% filter(condition == "nonselective") %>%
   scale_color_manual(values=c(my.pal2[7],my.pal2[5],my.pal2[9]))+
   theme_Publication()+
   stat_pvalue_manual(games_test,label = "p.adj.signif",y.position = 0.5,step.increase = 0.05)+
-  labs(y="Relative Ascendency",x="",title="nonselective Condition")+
+  labs(y="Relative Ascendency",x="",title="Nonselective Condition")+
   theme(legend.position = "none",text = element_text(size=12))
 
 Figure_4<-Figure_4a+Figure_4b
 Figure_4<-Figure_4+plot_annotation(tag_levels = "A")
 Figure_4
+ggsave(filename = "Fig5.jpg",Figure_4,width=9,height = 8.5,dpi = 300)
 ```
-##5.5 Figure 5: Group-level flow distributions
+##4.5 Figure 5: Group-level flow distributions
 ```{r}
-flow %>%
+Figure_5<-flow %>%
   filter(EPU == "GOM")%>%
   filter(condition == "nonselective") %>%
   ggplot(aes(x=flow))+
@@ -1450,6 +1323,8 @@ flow %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
   theme(legend.position = "none",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
   facet_wrap(vars(group),nrow=6,scales="free")
+ggsave(filename = "Fig6.jpg",Figure_5,width=13.65,height = 10.8,dpi = 300)
+
 ```
 
 ##5.6 Figures 6 and 7: Flow metric comparisons (plausible to nonselective)
@@ -1546,18 +1421,6 @@ Figure_7c<-flow %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
   theme(text = element_text(size=12),axis.text.y = element_blank(),axis.ticks.y=element_blank(),legend.position = "bottom")
 
-# Figure_6g<-flow %>%
-#   filter(group == "Detritus") %>%
-#   ggplot(aes(x=flow,fill=condition))+
-#   geom_density(alpha = 0.5,linewidth=0.5)+
-#   facet_wrap(~fct_relevel(EPU,"GOM","GB","MAB"),scales = "free")+
-#   scale_fill_manual(values = c(my.pal2[11],my.pal2[1]))+
-#   ggtitle(label = "Detritus")+
-#   theme_Publication()+
-#   theme(legend.position = "bottom")+
-#   coord_cartesian(expand = F)+
-#   theme(text = element_text(size=12))
-
 
 Figure_6<-Figure_6a/Figure_6b/Figure_6c
 Figure_6<-Figure_6+plot_annotation(tag_levels = "A")
@@ -1565,6 +1428,9 @@ Figure_6
 Figure_7<-Figure_7a/Figure_7b/Figure_7c
 Figure_7<-Figure_7+plot_annotation(tag_levels = "A")
 Figure_7
+ggsave(filename = "Fig7.jpg",Figure_6,width=13.65,height = 10.8,dpi = 300)
+ggsave(filename = "Fig8.jpg",Figure_7,width=13.65,height = 10.8,dpi = 300)
+
 ```
 #6 Supplemental Figures and Tables
 #6.3 Balanced model parameters for each model
@@ -1718,6 +1584,12 @@ Figure_S3<- flow %>%
   theme(legend.position = "bottom",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
   facet_wrap(vars(group),nrow=6,scales="free")
 Figure_S3
+
+ggsave(filename = "FigS1.jpg",Figure_S1,width=13.65,height = 10.8,dpi = 300)
+ggsave(filename = "FigS2.jpg",Figure_S2,width=13.65,height = 10.8,dpi = 300)
+ggsave(filename = "FigS3.jpg",Figure_S3,width=13.65,height = 10.8,dpi = 300)
+
+
 
 ```
 
