@@ -1,5 +1,7 @@
 # NEUS-Rpath-Comp
 
+See NEUS-Comp.Rmd for code for analyses and figures in Weisberg et al. (2025). 
+
 *This repository is a scientific product and is not official communication of the National Oceanic and
 Atmospheric Administration, or the United States Department of Commerce. All NOAA GitHub project code is
 provided on an ‘as is’ basis and the user assumes responsibility for its use. Any claims against the Department of
