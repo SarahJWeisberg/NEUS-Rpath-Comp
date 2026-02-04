@@ -1,7 +1,7 @@
 ---
 title: "Comparisons across NEUS Rpath models"
 author: "Sarah J. Weisberg"
-date: "2025-04-06"
+date: "2026-Feb-04"
 output: 
   html_document
 ---
@@ -1419,22 +1419,57 @@ write.csv(MAB_pedigree,"MAB_pedigree.csv")
 ```
 #6.3 Supplemental figures: flow distributions for all models, all groups
 ```{r}
-flow<-flow %>% mutate(p.signif = ifelse(p.signif=="ns","",p.signif))
-Figure_S1<- flow %>%
+#set color palette
+my.pal1<-brewer.pal(8,"Set2")
+my.pal2<-brewer.pal(12,"Paired")
+
+Figure_S1a<-ASC_CAP_GOM %>%
+  mutate(condition = fct_relevel(condition,"nonselective","plausible")) %>%
+  ggplot(aes(x=ASC_CAP, fill=condition))+
+  geom_density(alpha=0.4)+
+  scale_fill_manual(values = c(my.pal2[5],my.pal2[6]))+
+  labs(x="A/DC",y="density",title = "GOM")+
+  theme_Publication()+
+  theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.825))
+
+Figure_S1b<-ASC_CAP_GB %>%
+  mutate(condition = fct_relevel(condition,"nonselective","plausible"))%>%
+  ggplot(aes(x=ASC_CAP,fill=condition))+
+  geom_density(alpha=0.5)+
+  scale_fill_manual(values = c(my.pal2[7],my.pal2[8]))+
+  labs(x="A/DC",y="density",title="GB")+
+  theme_Publication()+
+  theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.9))
+
+Figure_S1c<-ASC_CAP_MAB %>%
+  mutate(condition = fct_relevel(condition,"nonselective","plausible")) %>%
+  ggplot(aes(x=ASC_CAP,fill=condition))+
+  geom_density(alpha=0.5)+
+  scale_fill_manual(values = c(my.pal2[9],my.pal2[10]))+
+  labs(x="A/DC",y="density",title ="MAB")+
+  theme_Publication()+
+  theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.825))
+
+Figure_S1<-Figure_S1a/Figure_S1b/Figure_S1c
+Figure_S1<-Figure_S1+plot_annotation(tag_levels = "A")
+Figure_S1
+ggsave(filename = "FigS1.jpg",Figure_S1,width=13.65,height = 10.8,dpi = 300)
+
+
+Figure_S2<- flow %>%
   filter(EPU == "GOM") %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.4)+
-  scale_fill_manual(values = c(my.pal2[9],my.pal2[10]))+
+  scale_fill_manual(values = c(my.pal2[5],my.pal2[6]))+
   theme_Publication()+
   scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
-  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
   labs(title = "GOM")+
   theme(legend.position = "bottom",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
   facet_wrap(vars(group),nrow=6,scales="free")
-Figure_S1
+Figure_S2
 
-Figure_S2<- flow %>%
+Figure_S3<- flow %>%
   filter(EPU == "GB") %>%
   ggplot(aes(x=flow,fill=condition))+
   geom_density(alpha = 0.4)+
@@ -1442,75 +1477,27 @@ Figure_S2<- flow %>%
   theme_Publication()+
   scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
-  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
   labs(title = "GB")+
-  theme(legend.position = "bottom",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
-  facet_wrap(vars(group),nrow=6,scales="free")
-Figure_S2
-
-Figure_S3<- flow %>%
-  filter(EPU == "MAB") %>%
-  ggplot(aes(x=flow,fill=condition))+
-  geom_density(alpha = 0.4)+
-  scale_fill_manual(values = c(my.pal2[5],my.pal2[6]))+
-  theme_Publication()+
-  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
-  geom_text_npc(aes(label = p.signif),npcy=0.98,npcx=0.02)+
-  labs(title = "MAB")+
   theme(legend.position = "bottom",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
   facet_wrap(vars(group),nrow=6,scales="free")
 Figure_S3
 
-ggsave(filename = "FigS1.jpg",Figure_S1,width=13.65,height = 10.8,dpi = 300)
+Figure_S4<- flow %>%
+  filter(EPU == "MAB") %>%
+  ggplot(aes(x=flow,fill=condition))+
+  geom_density(alpha = 0.4)+
+  scale_fill_manual(values = c(my.pal2[9],my.pal2[10]))+
+  theme_Publication()+
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)))+
+  labs(title = "MAB")+
+  theme(legend.position = "bottom",axis.text.y = element_blank(),axis.ticks.y=element_blank())+
+  facet_wrap(vars(group),nrow=6,scales="free")
+Figure_S4
+
 ggsave(filename = "FigS2.jpg",Figure_S2,width=13.65,height = 10.8,dpi = 300)
 ggsave(filename = "FigS3.jpg",Figure_S3,width=13.65,height = 10.8,dpi = 300)
-
-Figure_3a<-ASC_CAP_GOM %>%
-  mutate(condition = fct_relevel(condition,"nonselective","plausible")) %>%
-  ggplot(aes(x=ASC_CAP, fill=condition))+
-  geom_density(alpha=0.4)+
-  geom_vline(xintercept=info_orig_GOM$ASC.CAP,color=my.pal2[10],linetype="dashed",linewidth=1)+
-  geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
-  scale_fill_manual(values = c(my.pal2[9],my.pal2[10]))+
-  labs(x="A/DC",y="density",title = "GOM")+
-  coord_cartesian(xlim = c(0.275,0.505), ylim = c(0,15),expand = F)+
-  geom_text(y=14,x=0.375,label="****")+
-  theme_Publication()+
-  theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.825))
-Figure_3a
-
-Figure_3b<-ASC_CAP_GB %>%
-  mutate(condition = fct_relevel(condition,"nonselective","plausible"))%>%
-  ggplot(aes(x=ASC_CAP,fill=condition))+
-  geom_density(alpha=0.5)+
-  geom_vline(xintercept=info_orig_GB$ASC.CAP,color=my.pal2[8],linetype="dashed",linewidth=1)+
-  geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
-  scale_fill_manual(values = c(my.pal2[7],my.pal2[8]))+
-  labs(x="A/DC",y="density",title="GB")+
-  coord_cartesian(xlim = c(0.275,0.505), ylim = c(0,14),expand = F)+
-  geom_text(y=12.5,x=0.36,label="****")+
-  theme_Publication()+
-  theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.9))
-
-Figure_3c<-ASC_CAP_MAB %>%
-  mutate(condition = fct_relevel(condition,"nonselective","plausible")) %>%
-  ggplot(aes(x=ASC_CAP,fill=condition))+
-  geom_density(alpha=0.5)+
-  geom_vline(xintercept=info_orig_MAB$ASC.CAP,color=my.pal2[6],linetype="dashed",linewidth=1)+
-  geom_vline(xintercept = 0.4,color="black",linetype="dashed",linewidth=1)+
-  scale_fill_manual(values = c(my.pal2[5],my.pal2[6]))+
-  labs(x="A/DC",y="density",title ="MAB")+
-  coord_cartesian(xlim = c(0.275,0.505), ylim = c(0,15),expand = F)+
-  geom_text(y=14.5,x=0.39,label="****")+
-  theme_Publication()+
-  theme(plot.title = element_text(size=18),legend.position = "inside",legend.position.inside = c(0.9,0.825))
-Figure_3c
-
-Figure_3<-Figure_3a/Figure_3b/Figure_3c
-Figure_3<-Figure_3+plot_annotation(tag_levels = "A")
-Figure_3
-ggsave(filename = "Fig4.jpg",Figure_3,width=13.65,height = 10.8,dpi = 300)
+ggsave(filename = "FigS4.jpg",Figure_S4,width=13.65,height = 10.8,dpi = 300)
 
 ```
 
