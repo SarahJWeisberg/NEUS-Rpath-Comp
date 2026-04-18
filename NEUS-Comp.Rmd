@@ -1175,8 +1175,8 @@ games_test <- ASC_CAP %>% filter(condition == "plausible") %>% games_howell_test
 Figure_4<-ASC_CAP %>% filter(condition == "plausible") %>%
   ggplot(aes(y=ASC_CAP,x=EPU,color=EPU))+
   geom_hline(yintercept = 0.4,color="black",linetype="dashed",linewidth=0.75)+
-  geom_hline(yintercept = 0.36,color="lightgrey",linetype="dashed",linewidth=0.75)+
-  geom_hline(yintercept = 0.44,color="lightgrey",linetype="dashed",linewidth=0.75)+
+  geom_hline(yintercept = 0.36,color=my.pal2[3],linetype="dashed",linewidth=0.75)+
+  geom_hline(yintercept = 0.44,color=my.pal2[3],linetype="dashed",linewidth=0.75)+
   #geom_hline(yintercept = 0.44,color="grey",linetype="dashed",linewidth=1)+
   #geom_hline(yintercept = 0.36,color="grey",linetype="dashed",linewidth=1)+
   geom_quasirandom(size = 1, width = .2, alpha = .25)+
@@ -1189,7 +1189,7 @@ Figure_4<-ASC_CAP %>% filter(condition == "plausible") %>%
 
 Figure_4
 
-ggsave(filename = "Fig4.jpg",Figure_4,width=9,height = 8.5,dpi = 300)
+ggsave(filename = "Fig4.jpg",Figure_4,width=7.5,height = 8,dpi = 300)
 ```
 
 ##4.4 Figure 5: Conceptual Figure
